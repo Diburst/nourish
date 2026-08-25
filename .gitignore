@@ -1,0 +1,16 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+.env
+.env.local
+.env*.local
+backups/*.sql.gz
+*.tsbuildinfo
+next-env.d.ts
+coverage/
+playwright-report/
+test-results/
+mcp/node_modules/
+mcp/dist/
