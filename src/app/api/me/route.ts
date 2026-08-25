@@ -30,6 +30,9 @@ function serializeUser(u: {
     energyUnit: u.energyUnit,
     mustChangePassword: u.mustChangePassword,
     createdAt: u.createdAt.toISOString(),
+    // Where agents reach the MCP endpoint from outside (e.g. a Tailscale Funnel URL).
+    // Set MCP_PUBLIC_URL when the public origin differs from the app's own.
+    mcpPublicUrl: process.env.MCP_PUBLIC_URL || null,
   };
 }
 

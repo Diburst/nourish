@@ -544,8 +544,14 @@ function CopyRow({ label, value, testId }: { label: string; value: string; testI
 }
 
 function TokenCreatedModal({ created, onClose }: { created: { name: string; token: string }; onClose: () => void }) {
-  const connectorUrl =
-    typeof window !== 'undefined' ? `${window.location.origin}/api/mcp/${created.token}` : '';
+  const { data: me } = useMe();
+  // Prefer the configured public MCP origin (e.g. the Tailscale Funnel URL): claude.ai
+  // connectors dial in from Anthropic's cloud and can't reach a VPN-only origin, and the
+  // browser's own origin here may be a LAN or localhost address.
+  const base =
+    me?.mcpPublicUrl?.replace(/\/$/, '') ??
+    (typeof window !== 'undefined' ? `${window.location.origin}/api/mcp` : '');
+  const connectorUrl = `${base}/${created.token}`;
   return (
     <Modal open onClose={onClose} title={`Connect “${created.name}”`}>
       <div className="space-y-3">
@@ -559,9 +565,9 @@ function TokenCreatedModal({ created, onClose }: { created: { name: string; toke
         />
         <CopyRow label="API token — for clients that send an Authorization: Bearer header" value={created.token} testId="token-secret" />
         <p className="text-xs text-muted">
-          The URL contains the token, so treat it like a password. If this server is reached over
-          your VPN only, claude.ai connectors need the MCP path published (see the README’s
-          Tailscale Funnel one-liner).
+          The URL contains the token, so treat it like a password.
+          {!me?.mcpPublicUrl &&
+            ' This URL uses the address you are browsing from — if agents connect through a published (Funnel) address instead, set MCP_PUBLIC_URL in .env and this dialog will use it.'}
         </p>
         <button className="btn-primary w-full" onClick={onClose}>
           Done

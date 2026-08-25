@@ -6,6 +6,7 @@ const envSchema = z.object({
   NEXTAUTH_URL: z.string().url(),
   ADMIN_EMAIL: z.string().email(),
   ADMIN_PASSWORD: z.string().min(8),
+  MCP_PUBLIC_URL: z.string().url().optional().or(z.literal('')),
   UPSTASH_REDIS_REST_URL: z.string().url().optional().or(z.literal('')),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional().or(z.literal('')),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),

@@ -8,6 +8,7 @@ export interface Me {
   energyUnit: 'KCAL' | 'KJ';
   mustChangePassword: boolean;
   createdAt: string;
+  mcpPublicUrl: string | null;
 }
 
 export interface ApiItem {
