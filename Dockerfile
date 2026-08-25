@@ -26,11 +26,14 @@ RUN apk add --no-cache postgresql16-client
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-# Prisma CLI + migrations for `prisma migrate deploy` on start.
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+# Migrations are applied by scripts/migrate.mjs (pg only, Prisma-ledger-compatible).
+# The Prisma CLI is deliberately NOT in this image — its dependency tree (engines,
+# @prisma/config, effect, …) cannot be shipped piecemeal, and it is not needed at
+# runtime: the app uses the WASM query compiler traced into the standalone bundle.
+COPY --from=builder /app/prisma/migrations ./prisma/migrations
 COPY --from=builder /app/scripts ./scripts
+# Next's file tracing misses the query-compiler wasm (loaded via a computed path);
+# ship the complete generated client explicitly.
+COPY --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/client
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && node scripts/bootstrap.mjs && node server.js"]
+CMD ["sh", "-c", "node scripts/migrate.mjs && node scripts/bootstrap.mjs && node server.js"]

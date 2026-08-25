@@ -9,7 +9,7 @@ services:
       BACKUP_DIR: /backups
     depends_on:
       db: { condition: service_healthy }
-    command: sh -c "npx prisma migrate deploy && node scripts/bootstrap.mjs && node server.js"
+    command: sh -c "node scripts/migrate.mjs && node scripts/bootstrap.mjs && node server.js"
     volumes:
       - ./backups:/backups
     healthcheck:

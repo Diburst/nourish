@@ -1,0 +1,11 @@
+node_modules
+.next
+mcp/node_modules
+mcp/dist
+backups
+.env
+.env.local
+.git
+test-results
+playwright-report
+coverage
