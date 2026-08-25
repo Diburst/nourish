@@ -286,6 +286,48 @@ model EntryRevision {
   @@index([userId, createdAt])
 }
 
+/// OAuth 2.1 shim for Claude custom connectors: clients register via DCR, the user
+/// pastes an ApiToken on the authorize page, and the token endpoint returns that
+/// token as the Bearer credential. Nothing here grants anything an ApiToken couldn't.
+model OAuthClient {
+  id           String   @id @default(cuid())
+  name         String
+  redirectUris String[]
+  createdAt    DateTime @default(now())
+
+  codes  OAuthCode[]
+  grants OAuthGrant[]
+}
+
+model OAuthCode {
+  id                  String      @id @default(cuid())
+  codeHash            String      @unique
+  clientId            String
+  client              OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  redirectUri         String
+  codeChallenge       String
+  codeChallengeMethod String
+  tokenId             String
+  encToken            String
+  scope               String?
+  expiresAt           DateTime
+  usedAt              DateTime?
+  createdAt           DateTime    @default(now())
+}
+
+model OAuthGrant {
+  id          String      @id @default(cuid())
+  refreshHash String      @unique
+  clientId    String
+  client      OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tokenId     String
+  encToken    String
+  scope       String?
+  createdAt   DateTime    @default(now())
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+}
+
 model AuthEvent {
   id        String   @id @default(cuid())
   userId    String?

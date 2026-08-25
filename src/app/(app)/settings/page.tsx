@@ -551,21 +551,18 @@ function TokenCreatedModal({ created, onClose }: { created: { name: string; toke
   const base =
     me?.mcpPublicUrl?.replace(/\/$/, '') ??
     (typeof window !== 'undefined' ? `${window.location.origin}/api/mcp` : '');
-  const connectorUrl = `${base}/${created.token}`;
   return (
     <Modal open onClose={onClose} title={`Connect “${created.name}”`}>
       <div className="space-y-3">
         <p className="text-sm">
-          Shown once — copy what you need now. Revoking the token kills both.
+          The token is shown once — copy it now. In Claude: Settings → Connectors → Add custom
+          connector → paste the URL below. When Claude opens the “Connect to Nourish” page,
+          paste the token there to approve. Revoking the token disconnects everything it granted.
         </p>
-        <CopyRow
-          label="Claude connector URL — paste into Settings → Connectors → Add custom connector (works from a phone; no installs)"
-          value={connectorUrl}
-          testId="connector-url"
-        />
-        <CopyRow label="API token — for clients that send an Authorization: Bearer header" value={created.token} testId="token-secret" />
+        <CopyRow label="Claude connector URL" value={base} testId="connector-url" />
+        <CopyRow label="API token — paste on the connect page (or as an Authorization: Bearer header)" value={created.token} testId="token-secret" />
         <p className="text-xs text-muted">
-          The URL contains the token, so treat it like a password.
+          Treat the token like a password.
           {!me?.mcpPublicUrl &&
             ' This URL uses the address you are browsing from — if agents connect through a published (Funnel) address instead, set MCP_PUBLIC_URL in .env and this dialog will use it.'}
         </p>

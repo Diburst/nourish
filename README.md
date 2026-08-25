@@ -26,14 +26,17 @@ Reached over VPN only (Tailscale recommended: stable `100.x` address / `nourish.
 
 The app serves MCP itself over Streamable HTTP at **`/api/mcp`**. Setup is one URL per person; adding a user = admin invite → they sign up → they mint their own token in Settings. Nothing to `npm install`, ever.
 
-**From a phone or claude.ai (custom connector).** In the Claude app: Settings → Connectors → *Add custom connector* → paste the connector URL from Nourish Settings (it embeds the token: `https://<host>/api/mcp/ntk_…`). One caveat: claude.ai connectors dial in from Anthropic's cloud, not from your device, so a VPN-only server is unreachable to them. Publish *just the MCP path* with Tailscale Funnel — the rest of the app stays tailnet-only:
+**From a phone or claude.ai (custom connector).** Claude's connector flow requires an OAuth handshake, so Nourish ships a minimal OAuth 2.1 layer (discovery, dynamic client registration, and a consent page where you paste your API token once; the issued credential *is* that token, scopes and all). Setup: in the Claude app, Settings → Connectors → *Add custom connector* → paste the connector URL from Nourish Settings (`https://<host>/api/mcp`) → when the "Connect to Nourish" page opens, paste your `ntk_…` token → Allow. Revoking the token in Settings disconnects the client.
+
+One caveat: claude.ai connectors dial in from Anthropic's cloud, not from your device, so a VPN-only server is unreachable to them. Publish the MCP path *and the OAuth paths* with Tailscale Funnel — the rest of the app stays tailnet-only:
 
 ```sh
-tailscale funnel --bg --set-path /api/mcp http://127.0.0.1:3000/api/mcp
-# → https://<mini>.<tailnet>.ts.net/api/mcp is now publicly reachable (HTTPS, tokens still required)
+tailscale funnel --bg --set-path /api/mcp      http://127.0.0.1:3000/api/mcp
+tailscale funnel --bg --set-path /oauth        http://127.0.0.1:3000/oauth
+tailscale funnel --bg --set-path /.well-known  http://127.0.0.1:3000/.well-known
 ```
 
-Then the connector URL is `https://<mini>.<tailnet>.ts.net/api/mcp/ntk_…`. The URL is the secret — revoke the token in Settings to kill it instantly. Check with `tailscale funnel status`; undo with `tailscale funnel reset`.
+Set `MCP_PUBLIC_URL=https://<mini>.<tailnet>.ts.net/api/mcp` in `.env` so Settings hands out the right URL and the OAuth metadata advertises the public origin. Check with `tailscale funnel status`; undo with `tailscale funnel reset`.
 
 **From Claude Code / any MCP client that can set headers** (on the tailnet, no Funnel needed):
 

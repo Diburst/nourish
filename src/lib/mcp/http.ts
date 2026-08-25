@@ -115,7 +115,19 @@ async function handleMessage(
 export async function mcpPost(request: NextRequest, pathToken?: string): Promise<NextResponse> {
   const auth = await authenticate(request, pathToken);
   if (!auth) {
-    return NextResponse.json({ error: 'Unauthorized: supply a valid ntk_ token' }, { status: 401 });
+    // RFC 9728: point OAuth-capable clients at the resource metadata so they can
+    // discover the authorization server and run the connect flow.
+    const { publicOrigin } = await import('@/lib/oauthService');
+    const origin = publicOrigin(request);
+    return NextResponse.json(
+      { error: 'Unauthorized: supply a valid ntk_ token' },
+      {
+        status: 401,
+        headers: {
+          'www-authenticate': `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource"`,
+        },
+      }
+    );
   }
   const rl = await applyRateLimit(request, '/api/mcp', 'read', auth.tokenId);
   if (rl) return rl;
