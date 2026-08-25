@@ -19,23 +19,32 @@ Reached over VPN only (Tailscale recommended: stable `100.x` address / `nourish.
 3. `cp .env.example .env` and fill in the values (generators are in the comments). Compose v2.24+ interpolates `${POSTGRES_PASSWORD}` inside `.env`.
 4. `docker compose up -d --build` — the first build takes a few minutes on the mini.
 5. Visit `NEXTAUTH_URL`; sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD`, change the password when prompted.
-6. Admin → Invites → create an invite for yourself as a normal user (the admin cannot hold nutrition data), sign up, then Settings → API tokens → create **"Claude desktop"** (the secret is shown once).
-7. On the machine running Claude: `cd mcp && npm install && npm run build`, then add to Claude's MCP config:
+6. Admin → Invites → create an invite for yourself as a normal user (the admin cannot hold nutrition data), sign up, then Settings → API tokens → create **"Claude desktop"** — the dialog shows the token once, along with a ready-to-paste **connector URL**.
+7. Connect an agent — see the next section. No installs are required on anyone's machine.
 
-```json
-{
-  "nourish": {
-    "command": "node",
-    "args": ["/path/to/nourish/mcp/dist/index.js", "--allow-writes"],
-    "env": {
-      "NOURISH_URL": "http://nourish.<tailnet>.ts.net:3000",
-      "NOURISH_TOKEN": "ntk_..."
-    }
-  }
-}
+## Connecting agents (no installs)
+
+The app serves MCP itself over Streamable HTTP at **`/api/mcp`**. Setup is one URL per person; adding a user = admin invite → they sign up → they mint their own token in Settings. Nothing to `npm install`, ever.
+
+**From a phone or claude.ai (custom connector).** In the Claude app: Settings → Connectors → *Add custom connector* → paste the connector URL from Nourish Settings (it embeds the token: `https://<host>/api/mcp/ntk_…`). One caveat: claude.ai connectors dial in from Anthropic's cloud, not from your device, so a VPN-only server is unreachable to them. Publish *just the MCP path* with Tailscale Funnel — the rest of the app stays tailnet-only:
+
+```sh
+tailscale funnel --bg --set-path /api/mcp http://127.0.0.1:3000/api/mcp
+# → https://<mini>.<tailnet>.ts.net/api/mcp is now publicly reachable (HTTPS, tokens still required)
 ```
 
-Omit `--allow-writes` for a read-only agent; the token's server-side scopes still apply either way.
+Then the connector URL is `https://<mini>.<tailnet>.ts.net/api/mcp/ntk_…`. The URL is the secret — revoke the token in Settings to kill it instantly. Check with `tailscale funnel status`; undo with `tailscale funnel reset`.
+
+**From Claude Code / any MCP client that can set headers** (on the tailnet, no Funnel needed):
+
+```sh
+claude mcp add --transport http nourish http://nourish.<tailnet>.ts.net:3000/api/mcp \
+  --header "Authorization: Bearer ntk_..."
+```
+
+**Scopes instead of flags.** Tool visibility follows the token: a token without write scopes only sees (and can only call) read tools. Mint a read-only token in Settings for a look-but-don't-touch agent.
+
+**stdio fallback.** The original local wrapper still exists for fully offline setups: `cd mcp && npm install && npm run build`, then register `node mcp/dist/index.js --allow-writes` with `NOURISH_URL` / `NOURISH_TOKEN` env vars.
 
 ### Day-2 operations
 

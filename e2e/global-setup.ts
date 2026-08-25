@@ -26,4 +26,10 @@ export default async function globalSetup() {
   } finally {
     await client.end();
   }
+
+  // Warm the dev server's on-demand compiles so first-navigation timings can't flake tests.
+  const base = process.env.E2E_BASE_URL ?? 'http://localhost:3000';
+  for (const path of ['/login', '/signup', '/dashboard', '/settings', '/log', '/admin', '/api/auth/csrf']) {
+    await fetch(`${base}${path}`, { redirect: 'manual' }).catch(() => {});
+  }
 }

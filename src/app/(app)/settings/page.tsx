@@ -510,16 +510,64 @@ function TokensCard() {
         <button type="submit" className="btn" disabled={create.isPending}>Create</button>
       </form>
       <ErrorText error={create.error || revoke.error} />
-      {created && (
-        <Modal open onClose={() => setCreated(null)} title={`Token for ${created.name}`}>
-          <p className="mb-2 text-sm">Copy it now — it will not be shown again.</p>
-          <code className="block break-all rounded bg-page p-2 text-xs" data-testid="token-secret">{created.token}</code>
-          <button className="btn-primary mt-3 w-full" onClick={() => setCreated(null)}>
-            Done
-          </button>
-        </Modal>
-      )}
+      {created && <TokenCreatedModal created={created} onClose={() => setCreated(null)} />}
     </Card>
+  );
+}
+
+function CopyRow({ label, value, testId }: { label: string; value: string; testId?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div>
+      <p className="label">{label}</p>
+      <div className="flex items-start gap-2">
+        <code className="block flex-1 break-all rounded bg-page p-2 text-xs" data-testid={testId}>
+          {value}
+        </code>
+        <button
+          className="btn shrink-0"
+          onClick={() => {
+            navigator.clipboard?.writeText(value).then(
+              () => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              },
+              () => {}
+            );
+          }}
+        >
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TokenCreatedModal({ created, onClose }: { created: { name: string; token: string }; onClose: () => void }) {
+  const connectorUrl =
+    typeof window !== 'undefined' ? `${window.location.origin}/api/mcp/${created.token}` : '';
+  return (
+    <Modal open onClose={onClose} title={`Connect “${created.name}”`}>
+      <div className="space-y-3">
+        <p className="text-sm">
+          Shown once — copy what you need now. Revoking the token kills both.
+        </p>
+        <CopyRow
+          label="Claude connector URL — paste into Settings → Connectors → Add custom connector (works from a phone; no installs)"
+          value={connectorUrl}
+          testId="connector-url"
+        />
+        <CopyRow label="API token — for clients that send an Authorization: Bearer header" value={created.token} testId="token-secret" />
+        <p className="text-xs text-muted">
+          The URL contains the token, so treat it like a password. If this server is reached over
+          your VPN only, claude.ai connectors need the MCP path published (see the README’s
+          Tailscale Funnel one-liner).
+        </p>
+        <button className="btn-primary w-full" onClick={onClose}>
+          Done
+        </button>
+      </div>
+    </Modal>
   );
 }
 

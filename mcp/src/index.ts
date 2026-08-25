@@ -130,6 +130,13 @@ server.tool(
   }
 );
 
+server.tool(
+  'get_weights',
+  'Raw daily weight entries (kg) for a date range.',
+  { from: DATE, to: DATE },
+  async ({ from, to }) => jsonResult(await api('GET', `/weights?from=${from}&to=${to}`))
+);
+
 // ---------------- write tools (only with --allow-writes) ----------------
 
 if (ALLOW_WRITES) {
