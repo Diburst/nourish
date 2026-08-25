@@ -1,0 +1,49 @@
+services:
+  app:
+    build: .
+    image: nourish-app:latest
+    restart: unless-stopped
+    ports: ["3000:3000"] # bind to Tailscale IP only if you prefer: "100.x.y.z:3000:3000"
+    env_file: .env
+    environment:
+      BACKUP_DIR: /backups
+    depends_on:
+      db: { condition: service_healthy }
+    command: sh -c "npx prisma migrate deploy && node scripts/bootstrap.mjs && node server.js"
+    volumes:
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nourish
+      POSTGRES_USER: nourish
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nourish"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on: [db]
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      RETENTION_DAYS: "14"
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup.sh:/backup.sh:ro
+    entrypoint: sh -c "while true; do sh /backup.sh; sleep 86400; done"
+
+volumes:
+  pgdata:

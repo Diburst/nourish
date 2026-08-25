@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-page text-ink antialiased;
+  font-feature-settings: 'tnum';
+}
+
+.card {
+  @apply rounded-lg border border-hairline bg-card p-4;
+}
+
+.hairline-divider {
+  @apply border-t border-hairline;
+}
+
+.tile {
+  @apply flex items-center justify-center rounded-md text-sm font-medium;
+}
+
+.tile-ok {
+  @apply bg-ok-bg text-ok-fg;
+}
+
+.tile-fail {
+  @apply bg-fail-bg text-fail-fg;
+}
+
+.tile-wip {
+  @apply bg-wip-bg text-wip-fg;
+}
+
+.tile-none {
+  @apply bg-page text-muted;
+}
+
+.btn {
+  @apply rounded-md border border-hairline bg-card px-3 py-1.5 text-sm text-ink transition-colors hover:bg-page disabled:opacity-50;
+}
+
+.btn-primary {
+  @apply rounded-md bg-ink px-3 py-1.5 text-sm text-white transition-opacity hover:opacity-90 disabled:opacity-50;
+}
+
+.input {
+  @apply w-full rounded-md border border-hairline bg-card px-2.5 py-1.5 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-barfill;
+}
+
+.label {
+  @apply mb-1 block text-xs font-medium text-muted;
+}
+
+.prose-guidelines h1 {
+  @apply mb-3 mt-5 text-lg font-semibold;
+}
+.prose-guidelines h2 {
+  @apply mb-2 mt-5 text-base font-semibold;
+}
+.prose-guidelines h3 {
+  @apply mb-1.5 mt-4 text-sm font-semibold;
+}
+.prose-guidelines p {
+  @apply mb-3 text-sm leading-relaxed;
+}
+.prose-guidelines ul {
+  @apply mb-3 list-disc space-y-1 pl-5 text-sm;
+}
+.prose-guidelines ol {
+  @apply mb-3 list-decimal space-y-1 pl-5 text-sm;
+}
+.prose-guidelines a {
+  @apply underline decoration-hairline underline-offset-2;
+}
+.prose-guidelines code {
+  @apply rounded bg-page px-1 py-0.5 text-xs;
+}
+.prose-guidelines table {
+  @apply mb-3 w-full border-collapse text-sm;
+}
+.prose-guidelines th,
+.prose-guidelines td {
+  @apply border border-hairline px-2 py-1 text-left;
+}

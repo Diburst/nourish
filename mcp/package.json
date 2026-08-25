@@ -1,0 +1,21 @@
+{
+  "name": "nourish-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MCP server for Nourish — a thin stdio wrapper over the Nourish REST API",
+  "type": "module",
+  "bin": { "nourish-mcp": "dist/index.js" },
+  "scripts": {
+    "build": "tsc",
+    "prepare": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.10",
+    "typescript": "^5.7.2"
+  }
+}

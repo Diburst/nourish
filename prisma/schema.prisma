@@ -1,0 +1,297 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["queryCompiler", "driverAdapters"]
+  engineType      = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum WeightUnit {
+  LB
+  KG
+}
+
+enum EnergyUnit {
+  KCAL
+  KJ
+}
+
+enum NutrientKind {
+  ENERGY
+  MACRO
+  MICRO
+}
+
+enum TargetRule {
+  MIN
+  MAX
+  RANGE
+}
+
+enum GoalDirection {
+  LOSE
+  GAIN
+  MAINTAIN
+}
+
+enum Source {
+  USER
+  TOKEN
+  SEED
+}
+
+enum ActorType {
+  USER
+  TOKEN
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  passwordHash       String
+  name               String
+  role               Role      @default(USER)
+  timezone           String    @default("UTC")
+  weightUnit         WeightUnit @default(LB)
+  energyUnit         EnergyUnit @default(KCAL)
+  mustChangePassword Boolean   @default(false)
+  sessionVersion     Int       @default(0)
+  disabledAt         DateTime?
+  createdAt          DateTime  @default(now())
+
+  tokens             ApiToken[]
+  nutrients          Nutrient[]
+  mealTypes          MealType[]
+  targets            Target[]
+  weightGoals        WeightGoal[]
+  meals              Meal[]
+  weights            Weight[]
+  entryRevisions     EntryRevision[]
+  invitesCreated     Invite[]  @relation("InviteCreator")
+  inviteUsed         Invite[]  @relation("InviteUser")
+  guidelineRevisions GuidelineRevision[]
+  sessions           Session[]
+}
+
+model Invite {
+  id          String    @id @default(cuid())
+  tokenHash   String    @unique
+  createdById String
+  createdBy   User      @relation("InviteCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  email       String?
+  expiresAt   DateTime
+  usedAt      DateTime?
+  usedById    String?
+  usedBy      User?     @relation("InviteUser", fields: [usedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+}
+
+model ApiToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  tokenHash  String    @unique
+  scopes     String[]
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expires      DateTime
+}
+
+model Nutrient {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code        String
+  displayName String
+  unit        String
+  kind        NutrientKind
+  targetRule  TargetRule
+  sortOrder   Int          @default(0)
+  archivedAt  DateTime?
+
+  itemNutrients MealItemNutrient[]
+
+  @@unique([userId, code])
+}
+
+model MealType {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code        String
+  displayName String
+  sortOrder   Int       @default(0)
+  archivedAt  DateTime?
+
+  meals Meal[]
+
+  @@unique([userId, code])
+}
+
+model Target {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  values        Json
+  source        Source
+  tokenId       String?
+  createdAt     DateTime  @default(now())
+
+  @@index([userId, effectiveFrom])
+}
+
+model WeightGoal {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  targetKg      Decimal
+  direction     GoalDirection
+  source        Source
+  tokenId       String?
+  createdAt     DateTime      @default(now())
+
+  @@index([userId, effectiveFrom])
+}
+
+model Meal {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date       DateTime
+  mealTypeId String
+  mealType   MealType  @relation(fields: [mealTypeId], references: [id], onDelete: Restrict)
+  notes      String?
+  loggedAt   DateTime  @default(now())
+  source     Source
+  tokenId    String?
+  deletedAt  DateTime?
+
+  items MealItem[]
+
+  @@unique([userId, date, mealTypeId])
+  @@index([userId, date])
+}
+
+model MealItem {
+  id             String    @id @default(cuid())
+  mealId         String
+  meal           Meal      @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  userId         String
+  name           String
+  normalizedName String
+  quantity       Decimal   @default(1)
+  notes          String?
+  loggedAt       DateTime  @default(now())
+  source         Source
+  tokenId        String?
+  idempotencyKey String?
+  pinned         Boolean   @default(false)
+  deletedAt      DateTime?
+
+  nutrients MealItemNutrient[]
+
+  @@unique([mealId, normalizedName])
+  @@unique([userId, idempotencyKey])
+  @@index([userId])
+}
+
+model MealItemNutrient {
+  itemId        String
+  item          MealItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  nutrientId    String
+  nutrient      Nutrient @relation(fields: [nutrientId], references: [id], onDelete: Cascade)
+  amountPerUnit Decimal
+
+  @@id([itemId, nutrientId])
+}
+
+model Weight {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date           DateTime
+  valueKg        Decimal
+  loggedAt       DateTime @default(now())
+  source         Source
+  tokenId        String?
+  idempotencyKey String?
+  pinned         Boolean  @default(false)
+
+  @@unique([userId, date])
+  @@unique([userId, idempotencyKey])
+  @@index([userId, date])
+}
+
+model GuidelineSection {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  title     String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  revisions GuidelineRevision[]
+}
+
+model GuidelineRevision {
+  id           String           @id @default(cuid())
+  sectionId    String
+  section      GuidelineSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  body         String
+  links        Json             @default("[]")
+  authorUserId String?
+  author       User?            @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+  tokenId      String?
+  createdAt    DateTime         @default(now())
+
+  @@index([sectionId, createdAt])
+}
+
+model EntryRevision {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entityType String
+  entityId   String
+  action     String
+  before     Json?
+  after      Json?
+  actorType  ActorType
+  actorId    String
+  override   Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model AuthEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  type      String
+  ip        String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
