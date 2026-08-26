@@ -17,6 +17,7 @@ function serializeUser(u: {
   timezone: string;
   weightUnit: string;
   energyUnit: string;
+  theme: string;
   mustChangePassword: boolean;
   createdAt: Date;
 }) {
@@ -28,6 +29,7 @@ function serializeUser(u: {
     timezone: u.timezone,
     weightUnit: u.weightUnit,
     energyUnit: u.energyUnit,
+    theme: u.theme,
     mustChangePassword: u.mustChangePassword,
     createdAt: u.createdAt.toISOString(),
     // Where agents reach the MCP endpoint from outside (e.g. a Tailscale Funnel URL).
@@ -49,6 +51,7 @@ const patchMeSchema = z.object({
   timezone: z.string().max(64).optional(),
   weightUnit: z.enum(['LB', 'KG']).optional(),
   energyUnit: z.enum(['KCAL', 'KJ']).optional(),
+  theme: z.enum(['neutral', 'sage', 'lavender', 'daisy', 'peach', 'sky']).optional(),
 });
 
 export const PATCH = apiRoute('patchMe', async (request: NextRequest) => {
@@ -70,6 +73,7 @@ export const PATCH = apiRoute('patchMe', async (request: NextRequest) => {
       ...(body.timezone !== undefined ? { timezone: body.timezone } : {}),
       ...(body.weightUnit !== undefined ? { weightUnit: body.weightUnit } : {}),
       ...(body.energyUnit !== undefined ? { energyUnit: body.energyUnit } : {}),
+      ...(body.theme !== undefined ? { theme: body.theme } : {}),
     },
   });
   return NextResponse.json(serializeUser(user));

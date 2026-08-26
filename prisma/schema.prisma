@@ -63,6 +63,7 @@ model User {
   weightUnit         WeightUnit @default(LB)
   energyUnit         EnergyUnit @default(KCAL)
   mustChangePassword Boolean   @default(false)
+  theme              String    @default("neutral")
   sessionVersion     Int       @default(0)
   disabledAt         DateTime?
   createdAt          DateTime  @default(now())

@@ -176,6 +176,18 @@ test('changing the target today leaves yesterday\'s checkmark unchanged', async 
   await expect(page.getByTestId('streak')).toHaveText(/[1-9]/); // yesterday's ✓ still counts
 });
 
+test('sign out redirects to /login promptly and ends the session', async ({ page }) => {
+  await login(page, USER_EMAIL, USER_PASSWORD);
+  await page.getByRole('button', { name: 'Account menu' }).click();
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  // Same-origin navigation must land quickly regardless of NEXTAUTH_URL's host.
+  await page.waitForURL(/\/login/, { timeout: 10_000 });
+  await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+  // The session is really gone: app pages bounce straight back to /login.
+  await page.goto('/dashboard');
+  await page.waitForURL(/\/login/);
+});
+
 async function daysStatus(request: APIRequestContext, date: string): Promise<string> {
   const res = await request.get(`/api/days?from=${date}&to=${date}`, {
     headers: { authorization: `Bearer ${tokenSecret}` },

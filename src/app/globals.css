@@ -4,6 +4,47 @@
 
 :root {
   color-scheme: light;
+  /* Accent theme tokens (neutral default). Status tints — green ✓ / red ✕ / yellow ⏱ —
+     are deliberately NOT themed: color keeps carrying meaning. */
+  --th-track: #d6d4ce;
+  --th-fill: #9c9a92;
+  --th-primary: #1c1c1a;
+  --th-wash: #f0efec;
+}
+
+[data-theme='sage'] {
+  --th-track: #d9e3d4;
+  --th-fill: #93ae8c;
+  --th-primary: #5c7a57;
+  --th-wash: #eef3ec;
+}
+
+[data-theme='lavender'] {
+  --th-track: #e0dcee;
+  --th-fill: #a79bcc;
+  --th-primary: #6f639f;
+  --th-wash: #f1eff7;
+}
+
+[data-theme='daisy'] {
+  --th-track: #f0e7c0;
+  --th-fill: #cfb45f;
+  --th-primary: #96803a;
+  --th-wash: #f8f4e1;
+}
+
+[data-theme='peach'] {
+  --th-track: #f5dfd2;
+  --th-fill: #dba184;
+  --th-primary: #b4744f;
+  --th-wash: #faefe8;
+}
+
+[data-theme='sky'] {
+  --th-track: #d8e7f1;
+  --th-fill: #8fb6d3;
+  --th-primary: #5581a3;
+  --th-wash: #ebf3f8;
 }
 
 body {
@@ -44,7 +85,8 @@ body {
 }
 
 .btn-primary {
-  @apply rounded-md bg-ink px-3 py-1.5 text-sm text-white transition-opacity hover:opacity-90 disabled:opacity-50;
+  @apply rounded-md px-3 py-1.5 text-sm text-white transition-opacity hover:opacity-90 disabled:opacity-50;
+  background-color: var(--th-primary);
 }
 
 .input {

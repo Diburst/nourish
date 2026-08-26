@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { Card, ErrorText, Modal, EmptyState } from '@/components/ui';
 import {
@@ -42,9 +43,19 @@ export default function SettingsPage() {
   );
 }
 
+const THEMES: { id: string; label: string; swatch: string }[] = [
+  { id: 'neutral', label: 'Neutral', swatch: '#9C9A92' },
+  { id: 'sage', label: 'Sage', swatch: '#93AE8C' },
+  { id: 'lavender', label: 'Lavender', swatch: '#A79BCC' },
+  { id: 'daisy', label: 'Daisy', swatch: '#CFB45F' },
+  { id: 'peach', label: 'Peach', swatch: '#DBA184' },
+  { id: 'sky', label: 'Sky', swatch: '#8FB6D3' },
+];
+
 function ProfileCard({ me }: { me: Me }) {
   const [name, setName] = useState(me.name);
   const [timezone, setTimezone] = useState(me.timezone);
+  const router = useRouter();
   const save = useApiMutation(
     (input: Record<string, string>) => fetchApi('/api/me', { method: 'PATCH', json: input }),
     nutritionKeys
@@ -82,6 +93,28 @@ function ProfileCard({ me }: { me: Me }) {
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+        <div>
+          <span className="label">Theme</span>
+          <div className="flex flex-wrap gap-1.5">
+            {THEMES.map((t) => (
+              <button
+                key={t.id}
+                className={`btn flex items-center gap-1.5 ${me.theme === t.id ? 'bg-page font-medium' : ''}`}
+                aria-pressed={me.theme === t.id}
+                onClick={() =>
+                  save.mutate({ theme: t.id }, { onSuccess: () => router.refresh() })
+                }
+              >
+                <span
+                  className="inline-block h-3 w-3 rounded-full border border-hairline"
+                  style={{ backgroundColor: t.swatch }}
+                  aria-hidden
+                />
+                {t.label}
+              </button>
+            ))}
           </div>
         </div>
         <ErrorText error={save.error} />
@@ -604,7 +637,12 @@ function SecurityCard() {
       <ErrorText error={change.error} />
       <button
         className="btn mt-3"
-        onClick={() => signOutAll.mutate(undefined as never, { onSuccess: () => signOut({ callbackUrl: '/login' }) })}
+        onClick={() =>
+          signOutAll.mutate(undefined as never, {
+            onSuccess: () =>
+              signOut({ redirect: false }).finally(() => window.location.assign('/login')),
+          })
+        }
       >
         Sign out on all devices
       </button>
@@ -643,7 +681,12 @@ function DangerCard() {
             <button
               className="btn text-fail-fg"
               disabled={del.isPending}
-              onClick={() => del.mutate(undefined as never, { onSuccess: () => signOut({ callbackUrl: '/login' }) })}
+              onClick={() =>
+                del.mutate(undefined as never, {
+                  onSuccess: () =>
+                    signOut({ redirect: false }).finally(() => window.location.assign('/login')),
+                })
+              }
             >
               Yes, delete everything
             </button>

@@ -19,10 +19,12 @@ function Leaf() {
 export function AppShell({
   name,
   isAdmin,
+  theme = 'neutral',
   children,
 }: {
   name: string;
   isAdmin: boolean;
+  theme?: string;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -41,7 +43,7 @@ export function AppShell({
     .toUpperCase();
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen" data-theme={theme}>
       <header className="border-b border-hairline bg-card">
         <div className="mx-auto flex max-w-column items-center gap-4 px-4 py-3">
           <Link href="/dashboard" className="flex items-center gap-1.5 font-semibold">
@@ -54,7 +56,7 @@ export function AppShell({
                 key={t.href}
                 href={t.href}
                 className={`rounded-md px-2.5 py-1 ${
-                  pathname.startsWith(t.href) ? 'bg-page font-medium' : 'text-muted hover:text-ink'
+                  pathname.startsWith(t.href) ? 'bg-wash font-medium' : 'text-muted hover:text-ink'
                 }`}
               >
                 {t.label}
@@ -70,7 +72,7 @@ export function AppShell({
           <div className="relative">
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-page text-xs font-medium"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-wash text-xs font-medium"
               aria-label="Account menu"
             >
               {initials || '·'}
@@ -80,7 +82,12 @@ export function AppShell({
                 <div className="px-3 py-1.5 text-muted">{name}</div>
                 <button
                   className="block w-full px-3 py-1.5 text-left hover:bg-page"
-                  onClick={() => signOut({ callbackUrl: '/login' })}
+                  onClick={() =>
+                    // redirect: false + a same-origin navigation — next-auth's own
+                    // redirect resolves against NEXTAUTH_URL, which hangs any browser
+                    // that reached the app via a different origin (LAN IP, localhost).
+                    signOut({ redirect: false }).finally(() => window.location.assign('/login'))
+                  }
                 >
                   Sign out
                 </button>

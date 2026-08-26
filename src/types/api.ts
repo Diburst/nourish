@@ -6,6 +6,7 @@ export interface Me {
   timezone: string;
   weightUnit: 'LB' | 'KG';
   energyUnit: 'KCAL' | 'KJ';
+  theme: string;
   mustChangePassword: boolean;
   createdAt: string;
   mcpPublicUrl: string | null;
