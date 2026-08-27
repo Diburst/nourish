@@ -33,10 +33,21 @@ export const POST = apiRoute('signup', async (request: NextRequest) => {
     return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409 });
   }
 
+  const { emailEnabled } = await import('@/lib/email');
+  const requiresVerification = emailEnabled();
+
   const passwordHash = await bcrypt.hash(body.password, 12);
   const user = await prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
-      data: { email, passwordHash, name: body.name, timezone },
+      data: {
+        email,
+        passwordHash,
+        name: body.name,
+        timezone,
+        // With no email service configured (self-host default), the invite already
+        // pinned identity — stamp verified so behavior is unchanged.
+        emailVerifiedAt: requiresVerification ? null : new Date(),
+      },
     });
     await seedUserDefaults(tx, created.id);
     await tx.invite.update({
@@ -46,9 +57,25 @@ export const POST = apiRoute('signup', async (request: NextRequest) => {
     return created;
   });
 
-  logger.info('User signed up', { userId: user.id });
+  const { recordAuthEvent } = await import('@/lib/authEvents');
+  recordAuthEvent('SIGNUP', request, user.id);
+  const { capture } = await import('@/lib/analytics');
+  capture('user_signed_up', user.id, { verificationRequired: requiresVerification });
+
+  if (requiresVerification) {
+    const { sendVerificationEmail } = await import('@/lib/emailFlows');
+    await sendVerificationEmail(user).catch(() => {});
+  }
+
+  logger.info('User signed up', { userId: user.id, requiresVerification });
   return NextResponse.json(
-    { id: user.id, email: user.email, name: user.name, timezone: user.timezone },
+    {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      timezone: user.timezone,
+      requiresVerification,
+    },
     { status: 201 }
   );
 });

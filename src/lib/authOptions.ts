@@ -22,7 +22,7 @@ export const authOptions: NextAuthOptions = {
         const ip =
           (req?.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 'unknown';
 
-        if (checkLoginBackoff(email)) {
+        if (await checkLoginBackoff(email)) {
           await prisma.authEvent
             .create({ data: { type: 'LOGIN_LOCKED', ip } })
             .catch(() => {});
@@ -31,7 +31,7 @@ export const authOptions: NextAuthOptions = {
 
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user || user.disabledAt) {
-          recordLoginFailure(email);
+          await recordLoginFailure(email);
           await prisma.authEvent
             .create({ data: { userId: user?.id, type: 'LOGIN_FAILED', ip } })
             .catch(() => {});
@@ -39,14 +39,23 @@ export const authOptions: NextAuthOptions = {
         }
         const ok = await bcrypt.compare(password, user.passwordHash);
         if (!ok) {
-          const locked = recordLoginFailure(email);
+          const locked = await recordLoginFailure(email);
           await prisma.authEvent
             .create({ data: { userId: user.id, type: locked ? 'LOGIN_LOCKOUT' : 'LOGIN_FAILED', ip } })
             .catch(() => {});
           return null;
         }
-        clearLoginFailures(email);
+        await clearLoginFailures(email);
+        // Email verification gate: only when the email service is configured. Accounts
+        // created before the feature (or while email is unconfigured) are stamped
+        // verified at creation/backfill, so the self-hosted deployment is unaffected.
+        const { emailEnabled } = await import('@/lib/email');
+        if (!user.emailVerifiedAt && emailEnabled()) {
+          throw new Error('Please verify your email first — check your inbox for the verification link.');
+        }
         await prisma.authEvent.create({ data: { userId: user.id, type: 'LOGIN', ip } }).catch(() => {});
+        const { capture } = await import('@/lib/analytics');
+        capture('user_logged_in', user.id);
         logger.info('Login', { userId: user.id });
         return { id: user.id, email: user.email, name: user.name };
       },

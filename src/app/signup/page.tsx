@@ -15,16 +15,22 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const [verifyPrompt, setVerifyPrompt] = useState(false);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-      await fetchApi('/api/signup', {
+      const created = await fetchApi<{ requiresVerification: boolean }>('/api/signup', {
         method: 'POST',
         json: { invite, name, email, password, timezone },
       });
+      if (created.requiresVerification) {
+        setVerifyPrompt(true);
+        return;
+      }
       const res = await signIn('credentials', { email, password, redirect: false });
       if (res?.error) {
         router.push('/login');
@@ -37,6 +43,20 @@ export default function SignupPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (verifyPrompt) {
+    return (
+      <main className="mx-auto flex max-w-column flex-col items-center px-4 pt-[16vh]">
+        <div className="card w-full max-w-sm text-center">
+          <p className="mb-1 text-2xl">✉</p>
+          <p className="text-sm font-medium">Check your inbox</p>
+          <p className="mt-1 text-sm text-muted">
+            We sent a verification link to {email}. Click it, then sign in.
+          </p>
+        </div>
+      </main>
+    );
   }
 
   return (

@@ -27,6 +27,8 @@ export function apiRoute(operation: string, handler: Handler): Handler {
         operation,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
+      const { captureError } = await import('@/lib/analytics');
+      captureError(operation, error);
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
   };
@@ -77,6 +79,32 @@ export async function guard(
   }
   const { auth, errorResponse } = await requireAuth(opts.endpoint, req);
   if (errorResponse) return { auth: null, error: errorResponse };
+
+  // CSRF belt-and-suspenders for cookie-authenticated mutations: browsers attach an
+  // Origin header to POST/PUT/PATCH/DELETE, and a cross-site one means the request
+  // was not made by our own pages. Bearer-token requests are immune by construction
+  // (no cookie is involved), and requests without an Origin (curl, server-to-server)
+  // carry no session cookie either.
+  if (opts.write && auth.tokenId === null) {
+    const origin = req.headers.get('origin');
+    const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host');
+    if (origin && host) {
+      try {
+        if (new URL(origin).host !== host) {
+          logger.warn('Cross-origin session mutation rejected', { endpoint: opts.endpoint, origin });
+          return {
+            auth: null,
+            error: NextResponse.json({ error: 'Cross-origin request rejected' }, { status: 403 }),
+          };
+        }
+      } catch {
+        return {
+          auth: null,
+          error: NextResponse.json({ error: 'Cross-origin request rejected' }, { status: 403 }),
+        };
+      }
+    }
+  }
 
   if (opts.admin) {
     const err = requireAdmin(auth);

@@ -1,4 +1,9 @@
-/** In-memory login backoff: 5 failures → 15-minute lockout, keyed by email. */
+/**
+ * Login backoff: 5 failures → 15-minute lockout, keyed by email. Durable via Upstash
+ * (fixed 15-minute window; INCR per failure, DEL on success) when configured, so the
+ * lockout holds across serverless instances; per-process in-memory otherwise.
+ */
+import { kvEnabled, kvWindowIncr, kvCommand, kvDelete } from '@/lib/kv';
 
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_FAILURES = 5;
@@ -11,7 +16,7 @@ interface Entry {
 
 const store = new Map<string, Entry>();
 
-export function checkLoginBackoff(email: string): boolean {
+function memCheck(email: string): boolean {
   const e = store.get(email);
   if (!e) return false;
   if (e.lockedUntil && Date.now() < e.lockedUntil) return true;
@@ -26,8 +31,7 @@ export function checkLoginBackoff(email: string): boolean {
   return false;
 }
 
-/** Record a failure; returns true when this failure triggers the lockout. */
-export function recordLoginFailure(email: string): boolean {
+function memRecord(email: string): boolean {
   const now = Date.now();
   const e = store.get(email);
   if (!e || now - e.firstFailureAt > WINDOW_MS) {
@@ -42,7 +46,29 @@ export function recordLoginFailure(email: string): boolean {
   return false;
 }
 
-export function clearLoginFailures(email: string): void {
+const kvKey = (email: string) => `lb:${email.toLowerCase()}`;
+
+/** Is this email currently locked out? */
+export async function checkLoginBackoff(email: string): Promise<boolean> {
+  if (kvEnabled()) {
+    const count = await kvCommand(['GET', kvKey(email)]);
+    if (count !== null) return Number(count) >= MAX_FAILURES;
+    // KV unreachable → fall through to the in-memory view.
+  }
+  return memCheck(email);
+}
+
+/** Record a failure; returns true when this failure triggers the lockout. */
+export async function recordLoginFailure(email: string): Promise<boolean> {
+  if (kvEnabled()) {
+    const count = await kvWindowIncr(kvKey(email), WINDOW_MS);
+    if (count !== null) return count === MAX_FAILURES;
+  }
+  return memRecord(email);
+}
+
+export async function clearLoginFailures(email: string): Promise<void> {
+  if (kvEnabled()) await kvDelete(kvKey(email));
   store.delete(email);
 }
 

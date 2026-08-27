@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "node scripts/bootstrap.mjs && next dev",
     "build": "next build",
+    "vercel-build": "node scripts/preflight.mjs && node scripts/migrate.mjs && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",

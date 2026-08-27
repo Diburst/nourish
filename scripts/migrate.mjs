@@ -17,7 +17,13 @@ import pg from 'pg';
 
 const MIGRATIONS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'prisma', 'migrations');
 
-const connectionString = process.env.DATABASE_URL;
+// Migrations want a DIRECT connection. On Neon/pgbouncer setups the runtime uses the
+// pooled URL while MIGRATE_DATABASE_URL (or the conventional *_UNPOOLED variant)
+// carries the direct one; single-database setups just use DATABASE_URL for both.
+const connectionString =
+  process.env.MIGRATE_DATABASE_URL ||
+  process.env.DATABASE_URL_UNPOOLED ||
+  process.env.DATABASE_URL;
 if (!connectionString) {
   console.error('[migrate] DATABASE_URL is not set. Refusing to start.');
   process.exit(1);

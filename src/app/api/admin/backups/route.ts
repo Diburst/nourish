@@ -27,12 +27,22 @@ async function listBackups() {
   }
 }
 
-/** GET — recent backup files + last run status. */
+const onManagedHost = () => process.env.VERCEL === '1' || process.env.VERCEL === 'true';
+
+/** GET — recent backup files + last run status (or managed-mode info on Vercel). */
 export const GET = apiRoute('adminGetBackups', async (request: NextRequest) => {
   const { auth, error } = await guard(request, { endpoint: '/api/admin/backups', admin: true });
   if (error) return error;
   void auth;
-  return NextResponse.json({ backups: await listBackups(), lastStatus });
+  if (onManagedHost()) {
+    return NextResponse.json({
+      mode: 'managed',
+      note: 'Backups are handled by the database provider (point-in-time restore). pg_dump-based backups apply only to the self-hosted Docker deployment.',
+      backups: [],
+      lastStatus: null,
+    });
+  }
+  return NextResponse.json({ mode: 'pg_dump', backups: await listBackups(), lastStatus });
 });
 
 /**
@@ -42,6 +52,13 @@ export const GET = apiRoute('adminGetBackups', async (request: NextRequest) => {
 export const POST = apiRoute('adminPostBackup', async (request: NextRequest) => {
   const { auth, error } = await guard(request, { endpoint: '/api/admin/backups', admin: true });
   if (error) return error;
+
+  if (onManagedHost()) {
+    return NextResponse.json(
+      { error: 'On this host, backups are managed by the database provider — use its point-in-time restore.' },
+      { status: 501 }
+    );
+  }
 
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {

@@ -54,6 +54,15 @@ export const POST = apiRoute('postToken', async (request: NextRequest) => {
       scopes: body.scopes ?? [...ALL_SCOPES],
     },
   });
+  const { recordAuthEvent } = await import('@/lib/authEvents');
+  recordAuthEvent('TOKEN_CREATED', request, auth.userId, { name: token.name });
+  const { capture } = await import('@/lib/analytics');
+  capture('api_token_created', auth.userId);
+  const user = await prisma.user.findUnique({ where: { id: auth.userId }, select: { email: true } });
+  if (user) {
+    const { sendSecurityNotice } = await import('@/lib/emailFlows');
+    sendSecurityNotice(user.email, 'New API token created', `A new agent token named “${token.name}” was just created in your Settings.`);
+  }
   logger.info('Token created', { userId: auth.userId, tokenId: token.id });
   return NextResponse.json(
     {

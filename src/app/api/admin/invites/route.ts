@@ -31,6 +31,7 @@ export const GET = apiRoute('adminGetInvites', async (request: NextRequest) => {
 
 const postSchema = z.object({
   email: z.string().email().optional(),
+  send: z.boolean().optional(),
 });
 
 /** POST — create a single-use invite (7-day expiry, optional email pin). Code shown once. */
@@ -49,13 +50,23 @@ export const POST = apiRoute('adminPostInvite', async (request: NextRequest) => 
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
   });
-  logger.info('Invite created', { adminId: auth.userId, inviteId: invite.id });
+  let emailed = false;
+  if (body.send && invite.email) {
+    const { emailEnabled } = await import('@/lib/email');
+    if (emailEnabled()) {
+      const { sendInviteEmail } = await import('@/lib/emailFlows');
+      emailed = (await sendInviteEmail(invite.email, raw)).delivered;
+    }
+  }
+
+  logger.info('Invite created', { adminId: auth.userId, inviteId: invite.id, emailed });
   return NextResponse.json(
     {
       id: invite.id,
       code: raw,
       email: invite.email,
       expiresAt: invite.expiresAt.toISOString(),
+      emailed,
     },
     { status: 201 }
   );

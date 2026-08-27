@@ -44,6 +44,8 @@ export default function LoginPage() {
         </button>
         <p className="text-center text-xs text-muted">
           Have an invite? <Link className="underline" href="/signup">Create an account</Link>
+          {' · '}
+          <Link className="underline" href="/forgot">Forgot password?</Link>
         </p>
       </form>
     </main>

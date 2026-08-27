@@ -79,6 +79,22 @@ export const POST = apiRoute('oauthToken', async (request: NextRequest) => {
         },
       }),
     ]);
+    const apiToken = await prisma.apiToken.findUnique({
+      where: { id: row.tokenId },
+      include: { user: { select: { id: true, email: true } } },
+    });
+    if (apiToken) {
+      const { recordAuthEvent } = await import('@/lib/authEvents');
+      recordAuthEvent('OAUTH_GRANT', request, apiToken.user.id, { token: apiToken.name });
+      const { capture } = await import('@/lib/analytics');
+      capture('oauth_grant_created', apiToken.user.id);
+      const { sendSecurityNotice } = await import('@/lib/emailFlows');
+      sendSecurityNotice(
+        apiToken.user.email,
+        'New agent connection authorized',
+        `An agent just completed the connect flow using your “${apiToken.name}” token.`
+      );
+    }
     logger.info('OAuth code exchanged', { clientId: row.clientId, tokenId: row.tokenId });
     return tokenResponse(raw, refreshToken, row.scope);
   }

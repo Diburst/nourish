@@ -52,7 +52,7 @@ async function authenticate(request: NextRequest, pathToken?: string) {
 
 async function handleMessage(
   msg: JsonRpcRequest,
-  auth: { raw: string; scopes: string[]; name: string }
+  auth: { raw: string; scopes: string[]; name: string; tokenId: string }
 ): Promise<unknown | null> {
   const id = msg.id ?? null;
 
@@ -87,6 +87,9 @@ async function handleMessage(
       if (!tool) return rpcError(id, -32602, `Unknown tool: ${name}`);
       try {
         const result = await tool.run(args, auth.raw);
+        // Analytics: tool name + outcome only — never arguments or results.
+        const { capture } = await import('@/lib/analytics');
+        capture('mcp_tool_called', auth.tokenId, { tool: name, ok: result.status < 400 });
         return rpcResult(id, {
           content: [{ type: 'text', text: JSON.stringify(result.body, null, 2) }],
           isError: result.status >= 400,

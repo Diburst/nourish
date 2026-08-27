@@ -640,7 +640,7 @@ function SecurityCard() {
         onClick={() =>
           signOutAll.mutate(undefined as never, {
             onSuccess: () =>
-              signOut({ redirect: false }).finally(() => window.location.assign('/login')),
+              signOut({ redirect: false }).finally(() => window.location.assign('/')),
           })
         }
       >
@@ -684,7 +684,7 @@ function DangerCard() {
               onClick={() =>
                 del.mutate(undefined as never, {
                   onSuccess: () =>
-                    signOut({ redirect: false }).finally(() => window.location.assign('/login')),
+                    signOut({ redirect: false }).finally(() => window.location.assign('/')),
                 })
               }
             >

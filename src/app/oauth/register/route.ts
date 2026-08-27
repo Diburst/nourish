@@ -41,6 +41,8 @@ export const POST = apiRoute('oauthRegister', async (request: NextRequest) => {
     data: { name: body.client_name ?? 'MCP client', redirectUris: body.redirect_uris },
   });
   logger.info('OAuth client registered', { clientId: client.id, name: client.name });
+  const { capture } = await import('@/lib/analytics');
+  capture('oauth_client_registered', 'server', { name: client.name });
 
   return NextResponse.json(
     {

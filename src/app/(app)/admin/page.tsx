@@ -30,8 +30,44 @@ export default function AdminPage() {
       <UsersCard />
       <InvitesCard />
       <TokensOverviewCard />
+      <AuthEventsCard />
       <OpsCard />
     </>
+  );
+}
+
+function AuthEventsCard() {
+  const { data } = useQuery({
+    queryKey: ['admin', 'auth-events'],
+    queryFn: () =>
+      fetchApi<{ events: { id: string; type: string; ip: string; userEmail: string | null; meta: Record<string, unknown> | null; createdAt: string }[] }>(
+        '/api/admin/auth-events'
+      ),
+    refetchInterval: 60_000,
+  });
+  return (
+    <Card title="Auth log">
+      {(data?.events ?? []).length === 0 ? (
+        <EmptyState>No auth events yet</EmptyState>
+      ) : (
+        <ul className="max-h-64 space-y-0.5 overflow-y-auto text-xs">
+          {data!.events.map((e) => (
+            <li key={e.id} className="flex items-baseline justify-between gap-2 border-t border-hairline py-1 first:border-t-0">
+              <span>
+                <span className="font-medium">{e.type.toLowerCase().replace(/_/g, ' ')}</span>
+                {e.userEmail && <span className="text-muted"> · {e.userEmail}</span>}
+                {e.meta && Object.keys(e.meta).length > 0 && (
+                  <span className="text-muted"> · {Object.entries(e.meta).map(([k, v]) => `${k}: ${String(v)}`).join(', ')}</span>
+                )}
+              </span>
+              <span className="whitespace-nowrap text-muted">
+                {e.ip} · {formatRelative(e.createdAt)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 
@@ -128,9 +164,14 @@ function InvitesCard() {
       ),
   });
   const [email, setEmail] = useState('');
-  const [created, setCreated] = useState<{ code: string } | null>(null);
+  const [sendByEmail, setSendByEmail] = useState(false);
+  const [created, setCreated] = useState<{ code: string; emailed?: boolean } | null>(null);
   const create = useApiMutation(
-    () => fetchApi<{ code: string }>('/api/admin/invites', { method: 'POST', json: email ? { email } : {} }),
+    () =>
+      fetchApi<{ code: string; emailed: boolean }>('/api/admin/invites', {
+        method: 'POST',
+        json: email ? { email, send: sendByEmail } : {},
+      }),
     [['admin', 'invites']]
   );
   const revoke = useApiMutation((id: string) => fetchApi(`/api/admin/invites/${id}`, { method: 'DELETE' }), [
@@ -174,10 +215,20 @@ function InvitesCard() {
           Create invite
         </button>
       </form>
+      {email && (
+        <label className="mt-2 flex items-center gap-2 text-xs text-muted">
+          <input type="checkbox" checked={sendByEmail} onChange={(e) => setSendByEmail(e.target.checked)} />
+          Email the invite code to them (needs the email service configured)
+        </label>
+      )}
       <ErrorText error={create.error || revoke.error} />
       {created && (
         <Modal open onClose={() => setCreated(null)} title="Invite code">
-          <p className="mb-2 text-sm">Share this code — it is shown once and expires in 7 days.</p>
+          <p className="mb-2 text-sm">
+            {created.emailed
+              ? 'Invite emailed. The code below is your copy — it expires in 7 days.'
+              : 'Share this code — it is shown once and expires in 7 days.'}
+          </p>
           <code className="block break-all rounded bg-page p-2 text-xs" data-testid="invite-code">{created.code}</code>
           <button className="btn-primary mt-3 w-full" onClick={() => setCreated(null)}>
             Done
@@ -254,10 +305,11 @@ function OpsCard() {
   const { data: backups, refetch } = useQuery({
     queryKey: queryKeys.admin.backups,
     queryFn: () =>
-      fetchApi<{ backups: { file: string; bytes: number; createdAt: string }[]; lastStatus: { at: string; ok: boolean; file?: string; error?: string } | null }>(
+      fetchApi<{ mode?: string; note?: string; backups: { file: string; bytes: number; createdAt: string }[]; lastStatus: { at: string; ok: boolean; file?: string; error?: string } | null }>(
         '/api/admin/backups'
       ),
   });
+  const managed = backups?.mode === 'managed';
   const backupNow = useApiMutation(() => fetchApi('/api/admin/backups', { method: 'POST' }), [['admin', 'backups']]);
 
   return (
@@ -280,14 +332,17 @@ function OpsCard() {
       <div className="mt-3 border-t border-hairline pt-3">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-medium">Backups</span>
-          <button
-            className="btn"
-            disabled={backupNow.isPending}
-            onClick={() => backupNow.mutate(undefined as never, { onSuccess: () => refetch() })}
-          >
-            {backupNow.isPending ? 'Running…' : 'Backup now'}
-          </button>
+          {!managed && (
+            <button
+              className="btn"
+              disabled={backupNow.isPending}
+              onClick={() => backupNow.mutate(undefined as never, { onSuccess: () => refetch() })}
+            >
+              {backupNow.isPending ? 'Running…' : 'Backup now'}
+            </button>
+          )}
         </div>
+        {managed && <p className="mb-1 text-xs text-muted">{backups?.note}</p>}
         {backups?.lastStatus && (
           <p className="mb-1 text-xs text-muted">
             Last: {backups.lastStatus.ok ? `ok (${backups.lastStatus.file})` : `failed — ${backups.lastStatus.error}`} ·{' '}

@@ -17,6 +17,8 @@ export const POST = apiRoute('signOutEverywhere', async (request: NextRequest) =
     where: { id: auth.userId },
     data: { sessionVersion: { increment: 1 } },
   });
+  const { recordAuthEvent } = await import('@/lib/authEvents');
+  recordAuthEvent('SESSIONS_INVALIDATED', request, auth.userId);
   logger.info('Sessions invalidated', { userId: auth.userId });
   return NextResponse.json({ ok: true });
 });

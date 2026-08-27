@@ -86,7 +86,7 @@ export function AppShell({
                     // redirect: false + a same-origin navigation — next-auth's own
                     // redirect resolves against NEXTAUTH_URL, which hangs any browser
                     // that reached the app via a different origin (LAN IP, localhost).
-                    signOut({ redirect: false }).finally(() => window.location.assign('/login'))
+                    signOut({ redirect: false }).finally(() => window.location.assign('/'))
                   }
                 >
                   Sign out

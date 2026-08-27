@@ -42,6 +42,10 @@ export const POST = apiRoute('changePassword', async (request: NextRequest) => {
       mustChangePassword: false,
     },
   });
+  const { recordAuthEvent } = await import('@/lib/authEvents');
+  recordAuthEvent('PASSWORD_CHANGED', request, user.id);
+  const { sendSecurityNotice } = await import('@/lib/emailFlows');
+  sendSecurityNotice(user.email, 'Password changed', 'Your Nourish password was just changed from Settings.');
   logger.info('Password changed', { userId: user.id });
   return NextResponse.json({ ok: true });
 });

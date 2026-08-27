@@ -38,9 +38,12 @@ try {
   if (admins.rows[0].n === 0) {
     const id = `admin-${randomBytes(12).toString('hex')}`;
     const hash = await bcrypt.hash(adminPassword, 12);
+    // emailVerifiedAt is stamped: the operator configured ADMIN_EMAIL themselves,
+    // and gating the only admin behind a verification email would brick a fresh
+    // email-enabled deployment.
     await client.query(
-      `INSERT INTO "User" (id, email, "passwordHash", name, role, "mustChangePassword")
-       VALUES ($1, $2, $3, 'Admin', 'ADMIN', true)
+      `INSERT INTO "User" (id, email, "passwordHash", name, role, "mustChangePassword", "emailVerifiedAt")
+       VALUES ($1, $2, $3, 'Admin', 'ADMIN', true, CURRENT_TIMESTAMP)
        ON CONFLICT (email) DO NOTHING`,
       [id, adminEmail.toLowerCase(), hash]
     );

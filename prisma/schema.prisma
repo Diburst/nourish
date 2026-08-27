@@ -65,6 +65,7 @@ model User {
   mustChangePassword Boolean   @default(false)
   theme              String    @default("neutral")
   sessionVersion     Int       @default(0)
+  emailVerifiedAt    DateTime?
   disabledAt         DateTime?
   createdAt          DateTime  @default(now())
 
@@ -80,6 +81,7 @@ model User {
   inviteUsed         Invite[]  @relation("InviteUser")
   guidelineRevisions GuidelineRevision[]
   sessions           Session[]
+  emailTokens        EmailToken[]
 }
 
 model Invite {
@@ -334,7 +336,24 @@ model AuthEvent {
   userId    String?
   type      String
   ip        String
+  meta      Json?
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+/// Single-use, expiring tokens for email flows (verification, password reset,
+/// email change). Only SHA-256 hashes are stored, mirroring ApiToken/Invite.
+model EmailToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  kind      String // VERIFY | RESET | EMAIL_CHANGE
+  newEmail  String?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, kind])
 }

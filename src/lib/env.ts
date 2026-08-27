@@ -9,6 +9,11 @@ const envSchema = z.object({
   MCP_PUBLIC_URL: z.string().url().optional().or(z.literal('')),
   UPSTASH_REDIS_REST_URL: z.string().url().optional().or(z.literal('')),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional().or(z.literal('')),
+  RESEND_API_KEY: z.string().optional().or(z.literal('')),
+  EMAIL_FROM: z.string().optional().or(z.literal('')),
+  POSTHOG_KEY: z.string().optional().or(z.literal('')),
+  POSTHOG_HOST: z.string().url().optional().or(z.literal('')),
+  MIGRATE_DATABASE_URL: z.string().url().optional().or(z.literal('')),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 });
 

@@ -59,6 +59,17 @@ claude mcp add --transport http nourish http://nourish.<tailnet>.ts.net:3000/api
 - **macOS sleep:** System Settings → Energy → *Prevent automatic sleeping when the display is off* and *Start up automatically after a power failure*, or the API will be unreachable overnight.
 - **Time zones:** the container runs UTC; all day math uses each user's stored timezone, so the host clock zone is irrelevant.
 
+## Deploying publicly (Vercel)
+
+The same codebase deploys to Vercel unchanged — the Docker path above stays the self-host option. Everything service-shaped is opt-in by env var and degrades gracefully when absent:
+
+- **Upstash Redis** (`UPSTASH_REDIS_REST_URL/TOKEN`) — shared rate limiting + login backoff. Optional on the single-process Docker deploy; **required on Vercel** (the `vercel-build` preflight fails the build without it, since per-instance memory can't rate-limit serverless).
+- **Resend** (`RESEND_API_KEY` + `EMAIL_FROM`) — email verification on signup, self-serve password reset (`/forgot`), email change confirmation, invite delivery, and security notices (new token, new agent connection, password changed). Without it, signups auto-verify (invites already pin identity), resets go through the admin, and notices log to the console.
+- **PostHog** (`POSTHOG_KEY`, optional `POSTHOG_HOST`) — server-side events only (names + counts; never nutrition data). Off when unset.
+- **Database URLs**: point `DATABASE_URL` at the pooled (PgBouncer) connection and `MIGRATE_DATABASE_URL` at the direct one; `vercel-build` runs migrations before the build.
+
+Security posture (always on, no config): CSP/HSTS/frame-deny/nosniff headers on every response, a cross-origin check on all cookie-authenticated mutations, and an auth audit trail (Admin → Auth log) covering signup, verification, password and email changes, tokens, OAuth grants, and admin actions.
+
 ## Dev loop
 
 ```sh

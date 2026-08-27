@@ -39,6 +39,13 @@ export const PATCH = apiRoute('adminPatchUser', async (request: NextRequest, { p
       ...(body.forceLogout || body.disabled ? { sessionVersion: { increment: 1 } } : {}),
     },
   });
+  const { recordAuthEvent } = await import('@/lib/authEvents');
+  recordAuthEvent('ADMIN_ACTION', request, user.id, {
+    admin: auth.userId,
+    disabled: body.disabled ?? false,
+    tempPassword: body.tempPassword !== undefined,
+    forceLogout: body.forceLogout === true,
+  });
   logger.info('Admin updated user', {
     adminId: auth.userId,
     userId: user.id,

@@ -18,6 +18,10 @@ export const DELETE = apiRoute('revokeToken', async (request: NextRequest, { par
   if (!token) return notFound('Token not found');
   if (!token.revokedAt) {
     await prisma.apiToken.update({ where: { id: token.id }, data: { revokedAt: new Date() } });
+    const { recordAuthEvent } = await import('@/lib/authEvents');
+    recordAuthEvent('TOKEN_REVOKED', request, auth.userId, { name: token.name });
+    const { capture } = await import('@/lib/analytics');
+    capture('api_token_revoked', auth.userId);
     logger.info('Token revoked', { userId: auth.userId, tokenId: token.id });
   }
   return new NextResponse(null, { status: 204 });
