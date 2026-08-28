@@ -37,12 +37,31 @@ export interface ApiMeal {
 export type DayStatus = 'success' | 'fail' | 'pending' | 'blank';
 export type TargetValue = number | { min: number; max: number };
 
+export interface ApiActivity {
+  id: string;
+  date: string;
+  kcal: number;
+  proteinG: number;
+  label: string | null;
+  minutes: number | null;
+  source: string;
+  tokenId: string | null;
+  externalId: string | null;
+  loggedAt: string;
+}
+
 export interface ApiDay {
   date: string;
   logged: boolean;
   status: DayStatus;
   totals: Record<string, number>;
+  /** Baseline target — never altered by activity. */
   target: Record<string, TargetValue> | null;
+  /** Baseline with the day's activity adjustment applied (KCAL/PROT only). */
+  adjustedTarget: Record<string, TargetValue> | null;
+  activityAdjustmentKcal: number;
+  activityAdjustmentProteinG: number;
+  activities: ApiActivity[];
   weightKg: number | null;
   meals: ApiMeal[];
 }
@@ -179,4 +198,12 @@ export interface ApiToken {
   lastUsedAt: string | null;
   revokedAt: string | null;
   createdAt: string;
+}
+
+export interface ApiAccountStatus {
+  steps: { account: boolean; token: boolean; paired: boolean; targets: boolean; weight: boolean };
+  setupComplete: boolean;
+  connection: 'never_set_up' | 'connected' | 'disconnected';
+  skipped: boolean;
+  mcpPublicUrl: string | null;
 }

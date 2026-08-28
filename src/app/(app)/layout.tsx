@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/authOptions';
 import { prisma } from '@/lib/prisma';
 import { AppShell } from '@/components/AppShell';
+import { getAccountStatus } from '@/lib/onboarding';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -11,9 +12,30 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     | undefined;
   if (!user?.id) redirect('/login');
   if (user.mustChangePassword) redirect('/change-password');
-  const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { theme: true } });
+  const isAdmin = user.role === 'ADMIN';
+  const [dbUser, status] = await Promise.all([
+    prisma.user.findUnique({ where: { id: user.id }, select: { theme: true } }),
+    // The soft wall reads the same status function as the banners and the wizard.
+    // Admins are exempt (they cannot hold agent tokens).
+    isAdmin ? Promise.resolve(null) : getAccountStatus(user.id),
+  ]);
   return (
-    <AppShell name={user.name} isAdmin={user.role === 'ADMIN'} theme={dbUser?.theme ?? 'neutral'}>
+    <AppShell
+      name={user.name}
+      isAdmin={isAdmin}
+      theme={dbUser?.theme ?? 'neutral'}
+      initialStatus={
+        status
+          ? {
+              steps: status.steps,
+              setupComplete: status.setupComplete,
+              connection: status.connection,
+              skipped: status.skipped,
+              mcpPublicUrl: process.env.MCP_PUBLIC_URL || null,
+            }
+          : undefined
+      }
+    >
       {children}
     </AppShell>
   );

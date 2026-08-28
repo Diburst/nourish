@@ -18,9 +18,12 @@ import { GET as getNutrients, POST as postNutrient } from '@/app/api/nutrients/r
 import { GET as getSummary } from '@/app/api/summary/route';
 import { GET as getSuggestions } from '@/app/api/suggestions/route';
 import { GET as getActivity } from '@/app/api/activity/route';
+import { POST as postActivity } from '@/app/api/activities/route';
+import { PATCH as patchActivity, DELETE as deleteActivity } from '@/app/api/activities/[id]/route';
 import { GET as getGuidelines, POST as postGuideline } from '@/app/api/guidelines/route';
 import { PUT as putGuideline, PATCH as patchGuideline } from '@/app/api/guidelines/[slug]/route';
 import { PUT as putGuidelineLinks } from '@/app/api/guidelines/[slug]/links/route';
+import { DOC_TOPICS, getDoc } from '@/lib/mcp/docs';
 
 type Handler = (req: NextRequest, ctx: { params: Record<string, string> }) => Promise<NextResponse>;
 type Json = Record<string, unknown>;
@@ -99,6 +102,24 @@ function qs(params: Record<string, string | undefined>): string {
 
 export const MCP_TOOLS: McpTool[] = [
   {
+    name: 'get_docs',
+    description:
+      'Nourish agent playbooks as markdown — pull one the moment you are unsure. Topics: overview, logging-meals, targets-vs-adjustments, weight, activity, summaries, guidelines, nutrients, conventions, errors, onboarding. No topic returns the index. No data access — always safe to call.',
+    inputSchema: obj({
+      topic: {
+        type: 'string',
+        enum: [...DOC_TOPICS],
+        description: 'Omit for the index + overview',
+      },
+    }),
+    requiredScopes: [],
+    run: async (args) => {
+      const doc = getDoc(args.topic as string | undefined);
+      if (!doc.ok) return { status: 400, body: { error: doc.error } };
+      return { status: 200, body: doc.markdown };
+    },
+  },
+  {
     name: 'get_summary',
     description:
       'Nutrition summary: averages, kcal/protein day hits, weekly micro totals vs ×7, streak, weight EMA + slope, unlogged days, top shortfalls. range: 7d, 30d or 90d.',
@@ -155,7 +176,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: 'get_activity',
     description:
-      'The EntryRevision audit feed (50/page). Filters: actor ("user" | "agents" | a token id), entityType, from/to dates, cursor.',
+      'The EntryRevision AUDIT FEED — who changed what, 50/page (not workouts; those are logged with log_activity and read from get_days activities[]). Filters: actor ("user" | "agents" | a token id), entityType, from/to dates, cursor.',
     inputSchema: obj({ cursor: str(), actor: str(), entityType: str(), from: DATE, to: DATE }),
     requiredScopes: ['nutrition:read'],
     run: (args, token) =>
@@ -275,6 +296,53 @@ export const MCP_TOOLS: McpTool[] = [
       ),
   },
   {
+    name: 'log_activity',
+    description:
+      "Log a workout/activity that bumps TODAY'S (or a past day's) energy and protein allowance by a plain offset — the baseline target is untouched and tomorrow starts at zero. For a ONE-DAY fuelling bump, use this; for a LASTING change to the everyday goal, use set_targets. Ask the user for a protein figure and pass proteinG in the SAME call (it defaults to 0, not to a derived value). Future dates are rejected — 'from now on' means set_targets. Set idempotencyKey (e.g. \"2026-08-28-morning-run\") so retries are safe.",
+    inputSchema: obj(
+      {
+        date: { ...DATE, description: 'YYYY-MM-DD in the user timezone. Defaults to today. Past dates OK (logging last night\'s run), future dates rejected.' },
+        kcal: num('Active kilocalories burned (whole number, 0–5000). Kilocalories, not kilojoules.'),
+        proteinG: num('Extra protein allowance in grams (whole number, 0–300). Defaults to 0 — ask the user and supply it here, in the same call.'),
+        label: str('Short human label, e.g. "10k run"'),
+        minutes: num('Duration in minutes'),
+        externalId: str('Stable id from an external source (watch/app) for dedupe'),
+        idempotencyKey: str(),
+      },
+      ['kcal']
+    ),
+    requiredScopes: ['nutrition:write'],
+    run: (args, token) => internal(postActivity, 'POST', '/api/activities', token, args),
+  },
+  {
+    name: 'update_activity',
+    description:
+      "Correct an activity entry's kcal, proteinG, label or minutes by id (ids come back from log_activity and get_days activities[]). The day's roll-up recomputes automatically.",
+    inputSchema: obj(
+      {
+        id: str('Activity id'),
+        kcal: num('Whole number, 0–5000'),
+        proteinG: num('Whole number, 0–300'),
+        label: str(),
+        minutes: num(),
+      },
+      ['id']
+    ),
+    requiredScopes: ['nutrition:write'],
+    run: (args, token) => {
+      const { id, ...rest } = args;
+      return internal(patchActivity, 'PATCH', `/api/activities/${id}`, token, rest, { id: String(id) });
+    },
+  },
+  {
+    name: 'delete_activity',
+    description: "Soft-delete an activity entry by id. The day's allowance drops back accordingly.",
+    inputSchema: obj({ id: str('Activity id') }, ['id']),
+    requiredScopes: ['nutrition:write'],
+    run: (args, token) =>
+      internal(deleteActivity, 'DELETE', `/api/activities/${args.id}`, token, undefined, { id: String(args.id) }),
+  },
+  {
     name: 'log_weight',
     description:
       'Log the day\'s weight (one per day; latest write wins). Send weightUnit: "lb" or "kg" — the server stores kg. Pinned days need override: true.',
@@ -294,7 +362,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: 'set_targets',
     description:
-      'Set nutrient targets going forward (append-only; past days keep the targets they were scored against). values maps nutrient code → number, or { min, max } for RANGE rules. Codes must exist in list_nutrients.',
+      'Set nutrient targets going forward (append-only; past days keep the targets they were scored against). values maps nutrient code → number, or { min, max } for RANGE rules. Codes must exist in list_nutrients. This is for LASTING changes to the everyday goal — it carries forward. For a one-day fuelling bump after a workout ("I ran today, I need more calories"), use log_activity instead.',
     inputSchema: obj(
       {
         effectiveFrom: DATE,

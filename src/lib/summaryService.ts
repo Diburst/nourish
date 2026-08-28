@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { todayInTz, addDays, weekDates, toDateString, parseDateToNoonUTC } from '@/lib/dates';
 import { getDaysData, getStreak, loadNutrients, loadTargetRows, UserContext } from '@/lib/dayData';
-import { targetForDate, evaluateWeek, emaSeries, emaSlopeKgPerWeek, targetAmount } from '@/lib/scoring';
+import { targetForDate, evaluateWeek, emaSeries, emaSlopeKgPerWeek, targetAmount, applyAdjustment } from '@/lib/scoring';
 
 export interface SummaryOptions {
   rangeDays: 7 | 30 | 90;
@@ -31,11 +31,11 @@ export async function buildSummary(user: UserContext, opts: SummaryOptions) {
       ? Math.round((loggedDays.reduce((s, d) => s + (d.totals[code] ?? 0), 0) / loggedDays.length) * 10) / 10
       : null;
 
-  // kcal / prot day hits.
+  // kcal / prot day hits — evaluated against base + the day's activity adjustment.
   let kcalHits = 0;
   let protHits = 0;
   for (const d of loggedDays) {
-    const t = targetForDate(targets, d.date);
+    const t = applyAdjustment(targetForDate(targets, d.date), d.adjustment);
     if (!t) continue;
     const kcalMax = targetAmount(t.values['KCAL'], 'MAX').max;
     const protMin = targetAmount(t.values['PROT'], 'MIN').min;
@@ -67,7 +67,9 @@ export async function buildSummary(user: UserContext, opts: SummaryOptions) {
             date,
             logged: existing.logged,
             totals: existing.totals,
-            target: targetForDate(targets, date),
+            // Weekly kcal/protein evaluation uses the adjusted target; micros are
+            // unaffected (adjustments only ever touch KCAL and PROT).
+            target: applyAdjustment(targetForDate(targets, date), existing.adjustment),
           };
         }
         // Edges of the range: treat as unlogged with zero totals (outside range).
@@ -113,10 +115,17 @@ export async function buildSummary(user: UserContext, opts: SummaryOptions) {
     }))
     .sort((a, b) => (a.paceRatio ?? 0) - (b.paceRatio ?? 0));
 
+  const daysWithActivity = days.filter((d) => d.activities.length > 0);
+
   return {
     range: { from, to: today, days: opts.rangeDays },
     daysLogged: loggedDays.length,
     unloggedDays,
+    activity: {
+      daysWithActivity: daysWithActivity.length,
+      adjustmentKcalTotal: days.reduce((s, d) => s + d.adjustment.kcal, 0),
+      adjustmentProteinGTotal: days.reduce((s, d) => s + d.adjustment.proteinG, 0),
+    },
     averages: { KCAL: avg('KCAL'), PROT: avg('PROT') },
     kcal: { daysHit: kcalHits, daysLogged: loggedDays.length },
     prot: { daysHit: protHits, daysLogged: loggedDays.length },

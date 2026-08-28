@@ -15,6 +15,51 @@ import { hashToken } from '@/lib/apiAuth';
 import { applyRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 import { MCP_TOOLS, toolsForScopes } from '@/lib/mcp/tools';
+import { DOC_TOPICS, getDoc } from '@/lib/mcp/docs';
+
+/**
+ * The highest-leverage 400 words in the project: injected into every session that
+ * connects. Everything longer is lazy-loaded through get_docs.
+ */
+const INSTRUCTIONS = `Nourish is a nutrition tracker where YOU are the primary writer: the human tells you what they ate, weighed and did; you log it; they read the trends. There is no food diary UI — if you don't write it, it doesn't exist.
+
+Data model in five lines:
+- Meals are SLOTS, unique per (date, mealType) — one Lunch per day; SNACK and DRINK each hold the whole day's snacks/drinks. Logging again appends items.
+- Item nutrition is PER SINGLE UNIT × quantity. Never send duplicate items — use quantity: 2.
+- Targets are append-only and effective-dated; past days keep the targets they were scored against.
+- Every write is soft-deleted and revisioned; the user sees a full audit feed.
+- Dates are YYYY-MM-DD in the user's local timezone; omitted dates mean today.
+
+Golden rules:
+- Call list_nutrients and get_targets before your first write of a session. Never invent nutrient codes.
+- Always pass an idempotencyKey on writes so retries are safe.
+- THE DISTINCTION THAT MATTERS MOST: a workout raises today's energy and protein allowance only — call log_activity (and pass proteinG in the same call; it defaults to 0). It never carries forward and never changes the baseline. set_targets is for lasting goal changes and does carry forward. "I ran today" is log_activity; "from now on" is set_targets.
+- Entries the human edited are pinned; changing them needs override: true — only when they asked.
+
+Errors come back as {"error": ...} with code and fix fields when there is a smarter move. Results may carry a _hint field while the account is incomplete — follow it.
+
+For playbooks (logging patterns, targets vs adjustments, onboarding prompts, error recovery), call get_docs — no topic returns the index.`;
+
+/** Setup nudges while the account is incomplete; the targets-vs-adjustments reminder on set_targets. */
+async function buildHint(
+  auth: { userId: string; setupComplete: boolean },
+  toolName: string
+): Promise<string | null> {
+  if (!auth.setupComplete) {
+    const { getAccountStatus } = await import('@/lib/onboarding');
+    const status = await getAccountStatus(auth.userId);
+    if (status.hint) return status.hint;
+  }
+  if (toolName === 'set_targets') {
+    const { hasRecentActivity } = await import('@/lib/activityService');
+    const { todayInTz } = await import('@/lib/dates');
+    const user = await prisma.user.findUnique({ where: { id: auth.userId }, select: { timezone: true } });
+    if (user && (await hasRecentActivity(auth.userId, todayInTz(user.timezone)))) {
+      return 'Reminder: set_targets changes the everyday goal and carries forward. For a one-day fuelling bump after a workout, log_activity is the right tool — this account has recent activity entries.';
+    }
+  }
+  return null;
+}
 
 const SUPPORTED_PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const LATEST_PROTOCOL = '2025-06-18';
@@ -43,16 +88,32 @@ async function authenticate(request: NextRequest, pathToken?: string) {
   if (!raw.startsWith('ntk_')) return null;
   const token = await prisma.apiToken.findUnique({
     where: { tokenHash: hashToken(raw) },
-    include: { user: { select: { disabledAt: true, role: true } } },
+    include: {
+      user: { select: { disabledAt: true, role: true, firstMcpCallAt: true, onboardingCompletedAt: true } },
+    },
   });
   if (!token || token.revokedAt || token.user.disabledAt || token.user.role === 'ADMIN') return null;
+  // Every dispatch stamps lastUsedAt; the FIRST successful authenticated dispatch
+  // stamps User.firstMcpCallAt — the pairing signal /onboarding polls for.
   prisma.apiToken.update({ where: { id: token.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
-  return { raw, scopes: token.scopes, tokenId: token.id, name: token.name };
+  if (!token.user.firstMcpCallAt) {
+    prisma.user
+      .update({ where: { id: token.userId }, data: { firstMcpCallAt: new Date() } })
+      .catch(() => {});
+  }
+  return {
+    raw,
+    scopes: token.scopes,
+    tokenId: token.id,
+    name: token.name,
+    userId: token.userId,
+    setupComplete: token.user.onboardingCompletedAt !== null,
+  };
 }
 
 async function handleMessage(
   msg: JsonRpcRequest,
-  auth: { raw: string; scopes: string[]; name: string; tokenId: string }
+  auth: { raw: string; scopes: string[]; name: string; tokenId: string; userId: string; setupComplete: boolean }
 ): Promise<unknown | null> {
   const id = msg.id ?? null;
 
@@ -64,10 +125,9 @@ async function handleMessage(
       const requested = String(msg.params?.protocolVersion ?? '');
       return rpcResult(id, {
         protocolVersion: SUPPORTED_PROTOCOLS.includes(requested) ? requested : LATEST_PROTOCOL,
-        capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: 'nourish', version: '1.1.0' },
-        instructions:
-          'Nourish nutrition tracker. Meals are slots per (date, mealType); item nutrition is per single unit — never send duplicate items, use quantity. Get valid nutrient codes from list_nutrients. Tool errors come back as {"error": "..."} JSON.',
+        capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
+        serverInfo: { name: 'nourish', version: '1.2.0' },
+        instructions: INSTRUCTIONS,
       });
     }
     case 'ping':
@@ -90,8 +150,19 @@ async function handleMessage(
         // Analytics: tool name + outcome only — never arguments or results.
         const { capture } = await import('@/lib/analytics');
         capture('mcp_tool_called', auth.tokenId, { tool: name, ok: result.status < 400 });
+        // Teaching hints. Zero extra queries once the account is set up (except the
+        // set_targets/activity distinction reminder, one cheap indexed lookup).
+        if (result.status < 400 && result.body && typeof result.body === 'object' && !Array.isArray(result.body)) {
+          const hint = await buildHint(auth, name);
+          if (hint) (result.body as Record<string, unknown>)._hint = hint;
+        }
         return rpcResult(id, {
-          content: [{ type: 'text', text: JSON.stringify(result.body, null, 2) }],
+          content: [
+            {
+              type: 'text',
+              text: typeof result.body === 'string' ? result.body : JSON.stringify(result.body, null, 2),
+            },
+          ],
           isError: result.status >= 400,
         });
       } catch (error) {
@@ -107,7 +178,24 @@ async function handleMessage(
       }
     }
     case 'resources/list':
-      return rpcResult(id, { resources: [] });
+      // Same strings as get_docs, at nourish://docs/{topic}, so a human can attach
+      // a playbook manually from a client's resource menu.
+      return rpcResult(id, {
+        resources: DOC_TOPICS.map((t) => ({
+          uri: `nourish://docs/${t}`,
+          name: `Nourish docs: ${t}`,
+          mimeType: 'text/markdown',
+        })),
+      });
+    case 'resources/read': {
+      const uri = String(msg.params?.uri ?? '');
+      const m = uri.match(/^nourish:\/\/docs\/([a-z-]+)$/);
+      const doc = m ? getDoc(m[1]) : null;
+      if (!doc || !doc.ok) return rpcError(id, -32602, `Unknown resource: ${uri}`);
+      return rpcResult(id, {
+        contents: [{ uri, mimeType: 'text/markdown', text: doc.markdown }],
+      });
+    }
     case 'prompts/list':
       return rpcResult(id, { prompts: [] });
     default:

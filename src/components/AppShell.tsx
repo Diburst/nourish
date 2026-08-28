@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { ReactNode, useState } from 'react';
+import { AccountStateGate } from '@/components/AccountStateGate';
+import { HelpProvider, HelpButton } from '@/components/Help';
+import type { ApiAccountStatus } from '@/types/api';
 
 function Leaf() {
   return (
@@ -20,11 +23,13 @@ export function AppShell({
   name,
   isAdmin,
   theme = 'neutral',
+  initialStatus,
   children,
 }: {
   name: string;
   isAdmin: boolean;
   theme?: string;
+  initialStatus?: ApiAccountStatus;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -43,6 +48,7 @@ export function AppShell({
     .toUpperCase();
 
   return (
+    <HelpProvider>
     <div className="min-h-screen" data-theme={theme}>
       <header className="border-b border-hairline bg-card">
         <div className="mx-auto flex max-w-column items-center gap-4 px-4 py-3">
@@ -96,7 +102,10 @@ export function AppShell({
           </div>
         </div>
       </header>
+      <AccountStateGate isAdmin={isAdmin} initialStatus={initialStatus} />
       <main className="mx-auto max-w-column space-y-4 px-4 py-5">{children}</main>
+      <HelpButton />
     </div>
+    </HelpProvider>
   );
 }

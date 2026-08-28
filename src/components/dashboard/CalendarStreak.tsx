@@ -57,7 +57,13 @@ export function CalendarStreak({
                 className={`flex aspect-square flex-col items-center justify-center rounded text-[10px] ${cls} ${
                   date === today ? 'ring-1 ring-barfill' : ''
                 }`}
-                title={date}
+                title={
+                  day && day.activityAdjustmentKcal > 0
+                    ? `${date} · +${day.activityAdjustmentKcal} kcal from activity${
+                        day.activityAdjustmentProteinG > 0 ? `, +${day.activityAdjustmentProteinG} g protein` : ''
+                      }`
+                    : date
+                }
               >
                 <span className="leading-none">{dayNum}</span>
                 {glyph && <span className="text-[9px] leading-tight">{glyph}</span>}

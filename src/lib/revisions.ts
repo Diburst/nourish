@@ -12,7 +12,7 @@ export async function writeRevision(
   tx: Tx,
   auth: AuthPrincipal,
   params: {
-    entityType: 'MEAL' | 'MEAL_ITEM' | 'WEIGHT' | 'TARGET' | 'WEIGHT_GOAL' | 'NUTRIENT' | 'MEAL_TYPE';
+    entityType: 'MEAL' | 'MEAL_ITEM' | 'WEIGHT' | 'TARGET' | 'WEIGHT_GOAL' | 'NUTRIENT' | 'MEAL_TYPE' | 'ACTIVITY';
     entityId: string;
     action: 'CREATE' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'ARCHIVE' | 'CORRECT';
     before?: unknown;

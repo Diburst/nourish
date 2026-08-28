@@ -55,15 +55,19 @@ test('admin signs in (forced password change) and creates an invite', async ({ p
   expect(inviteCode.length).toBeGreaterThan(10);
 });
 
-test('sign-up via invite lands on the dashboard', async ({ page }) => {
+test('sign-up via invite lands on onboarding (soft wall); skipping reaches the dashboard', async ({ page }) => {
   await page.goto('/signup');
   await page.getByLabel('Invite code').fill(inviteCode);
   await page.getByLabel('Name').fill('E2E User');
   await page.getByLabel('Email').fill(USER_EMAIL);
   await page.getByLabel('Password (10+ characters)').fill(USER_PASSWORD);
   await page.getByRole('button', { name: 'Create account' }).click();
+  await page.waitForURL(/onboarding/);
+  await expect(page.getByText('Nourish has no food diary')).toBeVisible();
+  await page.getByRole('button', { name: 'Explore without an agent' }).click();
   await page.waitForURL(/dashboard/);
   await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible();
+  await expect(page.getByTestId('setup-banner')).toBeVisible();
 });
 
 test('create an agent token in Settings', async ({ page }) => {

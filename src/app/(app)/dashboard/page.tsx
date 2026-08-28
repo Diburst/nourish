@@ -56,7 +56,7 @@ export default function DashboardPage() {
       {summary && nutrientsData && (
         <WeekCard summary={summary} nutrients={nutrientsData.nutrients} weekStart={week[0]} />
       )}
-      <SuggestionsCard suggestions={suggestionsData?.suggestions ?? []} />
+      <SuggestionsCard suggestions={suggestionsData?.suggestions ?? []} daysLogged={summary?.daysLogged ?? null} />
       <CalendarStreak monthDays={monthDays} today={today} streak={summary?.streak ?? 0} />
       <WeightCard me={me} weights={weights} goal={goalData?.goal ?? null} />
     </>

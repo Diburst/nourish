@@ -15,6 +15,7 @@ export async function resetDb() {
   await prisma.$executeRawUnsafe(`
     TRUNCATE TABLE "EntryRevision", "AuthEvent", "GuidelineRevision", "GuidelineSection",
       "MealItemNutrient", "MealItem", "Meal", "Weight", "Target", "WeightGoal",
+      "DayActivity", "DayAdjustment",
       "Nutrient", "MealType", "ApiToken", "Session", "Invite", "User" CASCADE
   `);
   resetRateLimitsForTests();

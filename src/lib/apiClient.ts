@@ -57,6 +57,7 @@ export const queryKeys = {
   guideline: (slug: string) => ['guidelines', slug] as const,
   guidelineRevisions: (slug: string) => ['guidelines', slug, 'revisions'] as const,
   tokens: ['tokens'] as const,
+  accountStatus: ['account-status'] as const,
   admin: {
     users: ['admin', 'users'] as const,
     invites: ['admin', 'invites'] as const,

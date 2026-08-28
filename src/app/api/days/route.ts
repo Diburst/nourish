@@ -53,6 +53,12 @@ export const GET = apiRoute('getDays', async (request: NextRequest) => {
       target: d.target,
       weightKg: d.weightKg,
       meals: d.meals,
+      // v1.6 additive fields: the day's activity adjustment. `target` above stays
+      // the unchanged baseline; success is evaluated against base + adjustment.
+      activityAdjustmentKcal: d.adjustment.kcal,
+      activityAdjustmentProteinG: d.adjustment.proteinG,
+      activities: d.activities,
+      adjustedTarget: d.adjustedTarget,
     })),
     ...(nextFrom ? { nextFrom } : {}),
   });

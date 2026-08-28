@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, ProgressRow, TileState } from '@/components/ui';
+import { Card, ProgressRow, TileState, AgentInvite } from '@/components/ui';
+import { AGENT_PROMPTS } from '@/content/agentPrompts';
+import { InfoDot } from '@/components/Help';
 import { formatDateShort } from '@/lib/format';
 import type { ApiSummary, ApiNutrient } from '@/types/api';
 
@@ -26,7 +28,7 @@ export function WeekCard({
     <Card
       title={
         <span>
-          This week{' '}
+          This week <InfoDot topic="week-success" />{' '}
           <span className="ml-1 font-normal text-muted">
             {formatDateShort(week.weekStart)} – {formatDateShort(week.weekEnd)} · {week.loggedDays} day
             {week.loggedDays === 1 ? '' : 's'} logged
@@ -34,6 +36,7 @@ export function WeekCard({
         </span>
       }
     >
+      {week.loggedDays === 0 && <AgentInvite text={AGENT_PROMPTS.logMeal.text} lead="Nothing logged this week yet. Try telling your agent:" />}
       <div className="space-y-3">
         <ProgressRow
           label="Calories"

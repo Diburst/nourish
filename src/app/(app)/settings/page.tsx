@@ -504,9 +504,12 @@ function TokensCard() {
   const tokens = data?.tokens ?? [];
   const create = useApiMutation(
     () => fetchApi<{ name: string; token: string }>('/api/tokens', { method: 'POST', json: { name } }),
-    [['tokens']]
+    [['tokens'], ['account-status']]
   );
-  const revoke = useApiMutation((id: string) => fetchApi(`/api/tokens/${id}`, { method: 'DELETE' }), [['tokens']]);
+  const revoke = useApiMutation((id: string) => fetchApi(`/api/tokens/${id}`, { method: 'DELETE' }), [
+    ['tokens'],
+    ['account-status'],
+  ]);
   return (
     <Card title="API tokens">
       <ul className="divide-y divide-hairline text-sm">

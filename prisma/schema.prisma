@@ -68,6 +68,9 @@ model User {
   emailVerifiedAt    DateTime?
   disabledAt         DateTime?
   createdAt          DateTime  @default(now())
+  firstMcpCallAt        DateTime?
+  onboardingCompletedAt DateTime?
+  onboardingSkippedAt   DateTime?
 
   tokens             ApiToken[]
   nutrients          Nutrient[]
@@ -82,6 +85,47 @@ model User {
   guidelineRevisions GuidelineRevision[]
   sessions           Session[]
   emailTokens        EmailToken[]
+  dayActivities      DayActivity[]
+  dayAdjustments     DayAdjustment[]
+}
+
+/// One logged activity (a workout, a walk). Many per day. Bumps the day's energy
+/// and protein allowance only — never the baseline targets (that is set_targets).
+/// The (userId, source, externalId) partial unique index for external imports
+/// lives only in the migration SQL (partial indexes are not representable here).
+model DayActivity {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date           DateTime
+  kcal           Int
+  proteinG       Int       @default(0)
+  label          String?
+  minutes        Int?
+  source         Source
+  tokenId        String?
+  externalId     String?
+  idempotencyKey String?
+  loggedAt       DateTime  @default(now())
+  updatedAt      DateTime  @default(now())
+  deletedAt      DateTime?
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, date])
+}
+
+/// Recorded roll-up of a day's activities. Derived but stored, so a rendered past
+/// day never changes. Recomputed from DayActivity rows in the same transaction as
+/// every activity write — never incremented.
+model DayAdjustment {
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date             DateTime
+  activityKcal     Int      @default(0)
+  activityProteinG Int      @default(0)
+  updatedAt        DateTime @default(now())
+
+  @@id([userId, date])
 }
 
 model Invite {

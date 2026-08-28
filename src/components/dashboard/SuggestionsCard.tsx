@@ -1,11 +1,26 @@
 'use client';
 
 import Link from 'next/link';
-import { Card } from '@/components/ui';
+import { Card, AgentInvite } from '@/components/ui';
+import { AGENT_PROMPTS } from '@/content/agentPrompts';
 import type { ApiSuggestion } from '@/types/api';
 
-export function SuggestionsCard({ suggestions }: { suggestions: ApiSuggestion[] }) {
-  if (suggestions.length === 0) return null;
+export function SuggestionsCard({ suggestions, daysLogged = null }: { suggestions: ApiSuggestion[]; daysLogged?: number | null }) {
+  if (suggestions.length === 0) {
+    // A quiet card for an established account (nothing lagging = good news), an
+    // invitation for an empty one.
+    if (daysLogged === 0) {
+      return (
+        <Card title="Suggestions">
+          <AgentInvite
+            text={AGENT_PROMPTS.shortfalls.text}
+            lead="Once some meals are logged, ask your agent:"
+          />
+        </Card>
+      );
+    }
+    return null;
+  }
   return (
     <Card title="Suggestions">
       <ul className="space-y-2.5">

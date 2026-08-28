@@ -53,6 +53,42 @@ export const patchItemSchema = z
   })
   .refine((o) => Object.keys(o).some((k) => k !== 'override'), { message: 'Nothing to update' });
 
+/**
+ * Activity entries. Range validation is the teaching guard against mis-keys: a
+ * fat-fingered 7000 kcal returns an error rather than wrecking a week. There is
+ * deliberately no cap setting — these bounds are it.
+ */
+const activityKcal = z
+  .number()
+  .int('kcal must be a whole number of kilocalories')
+  .min(0)
+  .max(5000, 'kcal must be 0–5000 per activity — above 5000 is almost certainly a mis-key; split a real ultra-event into multiple entries');
+const activityProteinG = z
+  .number()
+  .int('proteinG must be whole grams')
+  .min(0)
+  .max(300, 'proteinG must be 0–300 per activity — above 300 is almost certainly a mis-key');
+
+export const postActivitySchema = z.object({
+  date: dateString.optional(),
+  kcal: activityKcal,
+  proteinG: activityProteinG.optional(),
+  label: z.string().trim().min(1).max(120).optional(),
+  minutes: z.number().int().min(1).max(1440).optional(),
+  externalId: z.string().min(1).max(200).optional(),
+  idempotencyKey: z.string().min(1).max(200).optional(),
+});
+
+export const patchActivitySchema = z
+  .object({
+    date: dateString.optional(),
+    kcal: activityKcal.optional(),
+    proteinG: activityProteinG.optional(),
+    label: z.string().trim().min(1).max(120).nullable().optional(),
+    minutes: z.number().int().min(1).max(1440).nullable().optional(),
+  })
+  .refine((o) => Object.keys(o).length > 0, { message: 'Nothing to update' });
+
 export const postWeightSchema = z.object({
   date: dateString.optional(),
   value: z.number().finite().positive().max(2000),

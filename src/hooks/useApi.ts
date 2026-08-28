@@ -17,6 +17,19 @@ import type {
   ApiToken,
 } from '@/types/api';
 
+export function useAccountStatus(opts: { poll?: boolean; initialData?: import('@/types/api').ApiAccountStatus } = {}) {
+  return useQuery({
+    queryKey: queryKeys.accountStatus,
+    queryFn: () => fetchApi<import('@/types/api').ApiAccountStatus>('/api/onboarding/status'),
+    ...(opts.initialData ? { initialData: opts.initialData } : {}),
+    // Poll while the wizard is incomplete; people tab to Claude and come back.
+    refetchInterval: opts.poll
+      ? (query) => (query.state.data && !query.state.data.setupComplete ? 3000 : false)
+      : false,
+    refetchOnWindowFocus: true,
+  });
+}
+
 export function useMe() {
   return useQuery({ queryKey: queryKeys.me, queryFn: () => fetchApi<Me>('/api/me') });
 }

@@ -205,6 +205,41 @@ if (ALLOW_WRITES) {
   );
 
   server.tool(
+    'log_activity',
+    "Log a workout/activity that bumps TODAY'S (or a past day's) energy and protein allowance by a plain offset — the baseline target is untouched and tomorrow starts at zero. For a ONE-DAY fuelling bump, use this; for a LASTING change to the everyday goal, use set_targets. Ask the user for a protein figure and pass proteinG in the SAME call (it defaults to 0). Future dates are rejected — 'from now on' means set_targets.",
+    {
+      date: DATE.optional().describe('Defaults to today. Past dates OK; future dates rejected.'),
+      kcal: z.number().int().min(0).max(5000).describe('Active kilocalories burned (not kilojoules)'),
+      proteinG: z.number().int().min(0).max(300).optional().describe('Extra protein grams — ask the user and supply it in the same call'),
+      label: z.string().optional().describe('Short human label, e.g. "10k run"'),
+      minutes: z.number().int().optional(),
+      externalId: z.string().optional(),
+      idempotencyKey: z.string().optional(),
+    },
+    async (args) => jsonResult(await api('POST', '/activities', args))
+  );
+
+  server.tool(
+    'update_activity',
+    "Correct an activity entry's kcal, proteinG, label or minutes by id. The day's roll-up recomputes automatically.",
+    {
+      id: z.string(),
+      kcal: z.number().int().min(0).max(5000).optional(),
+      proteinG: z.number().int().min(0).max(300).optional(),
+      label: z.string().optional(),
+      minutes: z.number().int().optional(),
+    },
+    async ({ id, ...rest }) => jsonResult(await api('PATCH', `/activities/${id}`, rest))
+  );
+
+  server.tool(
+    'delete_activity',
+    "Soft-delete an activity entry by id. The day's allowance drops back accordingly.",
+    { id: z.string() },
+    async ({ id }) => jsonResult(await api('DELETE', `/activities/${id}`))
+  );
+
+  server.tool(
     'log_weight',
     'Log the day\'s weight (one per day; latest write wins). Send weightUnit: "lb" or "kg" — the server stores kg. Pinned days need override: true.',
     {
@@ -219,7 +254,7 @@ if (ALLOW_WRITES) {
 
   server.tool(
     'set_targets',
-    'Set nutrient targets going forward (append-only; past days keep the targets they were scored against). values maps nutrient code → number, or { min, max } for RANGE rules. Codes must exist in list_nutrients.',
+    'Set nutrient targets going forward (append-only; past days keep the targets they were scored against). values maps nutrient code → number, or { min, max } for RANGE rules. Codes must exist in list_nutrients. This is for LASTING changes that carry forward — for a one-day fuelling bump after a workout, use log_activity instead.',
     {
       effectiveFrom: DATE.optional().describe('Defaults to today'),
       values: z.record(z.string(), z.union([z.number(), z.object({ min: z.number(), max: z.number() })])),

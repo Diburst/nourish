@@ -1,6 +1,7 @@
 'use client';
 
-import { Card, EmptyState } from '@/components/ui';
+import { Card, EmptyState, AgentInvite } from '@/components/ui';
+import { AGENT_PROMPTS } from '@/content/agentPrompts';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -54,7 +55,10 @@ export function WeightCard({
       }
     >
       {data.length === 0 ? (
-        <EmptyState>No weights yet</EmptyState>
+        <div>
+          <EmptyState>No weights yet</EmptyState>
+          <AgentInvite text={AGENT_PROMPTS.logWeight.text} />
+        </div>
       ) : (
         <div className="h-44 w-full">
           <ResponsiveContainer width="100%" height="100%">

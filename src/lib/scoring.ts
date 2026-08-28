@@ -34,6 +34,34 @@ export interface TargetRow {
   values: TargetValues;
 }
 
+/** A day's activity adjustment: one-day bumps to the energy and protein allowance. */
+export interface ActivityAdjustment {
+  kcal: number;
+  proteinG: number;
+}
+
+export const ZERO_ADJUSTMENT: ActivityAdjustment = { kcal: 0, proteinG: 0 };
+
+function bumpValue(value: TargetValue, by: number): TargetValue {
+  if (typeof value === 'number') return value + by;
+  return { min: value.min + by, max: value.max + by };
+}
+
+/**
+ * Apply a day's activity adjustment to its baseline target row. Energy (KCAL) and
+ * protein (PROT) only — every other nutrient passes through untouched. Returns the
+ * row unchanged when there is nothing to apply, and null when there is no baseline
+ * target: a day with an adjustment but no target stays blank (the blank-day rule
+ * wins). Never writes anywhere — the baseline target history is untouched.
+ */
+export function applyAdjustment(target: TargetRow | null, adj: ActivityAdjustment | null | undefined): TargetRow | null {
+  if (!target || !adj || (adj.kcal === 0 && adj.proteinG === 0)) return target;
+  const values: TargetValues = { ...target.values };
+  if (adj.kcal !== 0 && values['KCAL'] !== undefined) values['KCAL'] = bumpValue(values['KCAL'], adj.kcal);
+  if (adj.proteinG !== 0 && values['PROT'] !== undefined) values['PROT'] = bumpValue(values['PROT'], adj.proteinG);
+  return { ...target, values };
+}
+
 /** The target row in effect on a given date, or null. Rows must not overlap. */
 export function targetForDate(rows: TargetRow[], date: string): TargetRow | null {
   for (const row of rows) {

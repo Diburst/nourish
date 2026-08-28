@@ -12,7 +12,11 @@ import {
   DayStatus,
   evaluateRule,
   targetAmount,
+  applyAdjustment,
+  ActivityAdjustment,
+  ZERO_ADJUSTMENT,
 } from '@/lib/scoring';
+import { loadAdjustments, loadActivities, SerializedActivity } from '@/lib/activityService';
 
 export interface SerializedItem {
   id: string;
@@ -42,7 +46,13 @@ export interface DayData {
   status: DayStatus;
   liveSuccess: boolean;
   totals: Record<string, number>;
+  /** Baseline target values — never altered by activity. */
   target: TargetValues | null;
+  /** Baseline with the day's activity adjustment applied (KCAL/PROT only); null when no baseline. */
+  adjustedTarget: TargetValues | null;
+  /** The day's recorded activity roll-up. Zero when no activity. */
+  adjustment: ActivityAdjustment;
+  activities: SerializedActivity[];
   meals: SerializedMeal[];
   weightKg: number | null;
 }
@@ -140,12 +150,14 @@ export function serializeMeal(meal: MealWithItems): SerializedMeal {
 
 /** Compute per-day data (totals, meals, status) for [from, to]. */
 export async function getDaysData(user: UserContext, from: string, to: string): Promise<DayData[]> {
-  const [meals, targets, weights] = await Promise.all([
+  const [meals, targets, weights, adjustments, activities] = await Promise.all([
     loadMeals(user.id, from, to),
     loadTargetRows(user.id),
     prisma.weight.findMany({
       where: { userId: user.id, date: { gte: parseDateToNoonUTC(from), lte: parseDateToNoonUTC(to) } },
     }),
+    loadAdjustments(user.id, from, to),
+    loadActivities(user.id, from, to),
   ]);
 
   const today = todayInTz(user.timezone);
@@ -168,13 +180,20 @@ export async function getDaysData(user: UserContext, from: string, to: string): 
     }
     const logged = dayMeals.some((m) => m.items.length > 0);
     const target = targetForDate(targets, date);
+    const adjustment = adjustments.get(date) ?? ZERO_ADJUSTMENT;
+    // Success evaluation uses base + adjustment — a 700 kcal run day must not read
+    // as an overshoot. The baseline target itself is reported unchanged.
+    const adjusted = applyAdjustment(target, adjustment);
     return {
       date,
       logged,
-      status: dayStatus({ date, logged, totals, target, today, accountCreatedDate }),
-      liveSuccess: liveDaySuccess(totals, target, logged),
+      status: dayStatus({ date, logged, totals, target: adjusted, today, accountCreatedDate }),
+      liveSuccess: liveDaySuccess(totals, adjusted, logged),
       totals,
       target: target?.values ?? null,
+      adjustedTarget: adjusted?.values ?? null,
+      adjustment,
+      activities: activities.get(date) ?? [],
       meals: dayMeals,
       weightKg: weightByDate.get(date) ?? null,
     };

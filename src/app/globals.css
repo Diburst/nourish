@@ -128,3 +128,36 @@ body {
 .prose-guidelines td {
   @apply border border-hairline px-2 py-1 text-left;
 }
+
+/* ---- v1.6 onboarding explainer + motion (everything behind prefers-reduced-motion) ---- */
+@keyframes onb-pop {
+  0% { opacity: 0; transform: translateY(6px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes onb-flow {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+@keyframes onb-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+.onb-beat {
+  opacity: 1;
+}
+.onb-arrow {
+  opacity: 0.6;
+}
+.onb-waiting-dot {
+  opacity: 0.8;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .onb-beat {
+    animation: onb-pop 0.5s ease-out both;
+  }
+  .onb-beat:nth-child(3) { animation-delay: 0.5s; }
+  .onb-beat:nth-child(5) { animation-delay: 1s; }
+  .onb-arrow { animation: onb-flow 2.4s ease-in-out infinite; }
+  .onb-arrow:nth-child(4) { animation-delay: 1.2s; }
+  .onb-waiting-dot { animation: onb-pulse 1.6s ease-in-out infinite; }
+}

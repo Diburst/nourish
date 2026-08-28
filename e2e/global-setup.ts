@@ -13,6 +13,7 @@ export default async function globalSetup() {
     await client.query(`
       TRUNCATE TABLE "EntryRevision", "AuthEvent", "GuidelineRevision", "GuidelineSection",
         "MealItemNutrient", "MealItem", "Meal", "Weight", "Target", "WeightGoal",
+        "DayActivity", "DayAdjustment",
         "Nutrient", "MealType", "ApiToken", "Session", "Invite", "User" CASCADE
     `);
     const email = (process.env.ADMIN_EMAIL ?? 'admin@example.com').toLowerCase();

@@ -7,7 +7,7 @@ import { useActivity, useTokens } from '@/hooks/useApi';
 import { formatRelative } from '@/lib/format';
 import type { ApiRevision } from '@/types/api';
 
-const ENTITY_TYPES = ['MEAL', 'MEAL_ITEM', 'WEIGHT', 'TARGET', 'WEIGHT_GOAL', 'NUTRIENT', 'MEAL_TYPE'];
+const ENTITY_TYPES = ['MEAL', 'MEAL_ITEM', 'WEIGHT', 'ACTIVITY', 'TARGET', 'WEIGHT_GOAL', 'NUTRIENT', 'MEAL_TYPE'];
 
 function actionLabel(r: ApiRevision): string {
   const entity = r.entityType.toLowerCase().replace('_', ' ');
